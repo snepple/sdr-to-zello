@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y \
     git build-essential cmake pkg-config ca-certificates curl jq \
     libboost-all-dev librtlsdr-dev rtl-sdr \
     libsndfile1-dev libzmq3-dev libsox-dev sox \
+    gnuradio-dev libgnuradio-osmosdr0.2.0-dev \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt
