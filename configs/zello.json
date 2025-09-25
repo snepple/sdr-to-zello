@@ -1,0 +1,14 @@
+{
+    "username": "PLACEHOLDER_USERNAME",
+    "password": "PLACEHOLDER_PASSWORD",
+    "zello_channel": "PLACEHOLDER_CHANNEL",
+    "zello_work_account_name": "PLACEHOLDER_WORK_ACCOUNT",
+    "audio_source": "UDP",
+    "UDP_PORT": 9123,
+    "vox_silence_time": 2000,
+    "audio_threshold": 700,
+    "zello_sample_rate": 16000,
+    "audio_input_sample_rate": 8000,
+    "audio_input_channels": 1,
+    "logging_level": "debug"
+}

@@ -1,0 +1,53 @@
+version: "2.4"
+
+services:
+  trunk-recorder:
+    build: ./trunk-recorder
+    restart: unless-stopped
+    privileged: true             # access SDR
+    network_mode: host           # UDP on loopback
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    volumes:
+      - data:/data               # holds /data/configs/*.json + logs
+    command: ["-c", "/data/configs/trunk-recorder.json"]
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    labels:
+      io.balena.features.kernel-modules: '1'
+      io.balena.features.firmware: '1'
+      io.balena.features.dbus: '1'
+
+  zellostream:
+    build: ./zellostream
+    restart: unless-stopped
+    depends_on:
+      trunk-recorder:
+        condition: service_started
+    network_mode: host
+    volumes:
+      - data:/data
+    environment:
+      # Set real values as Balena Service Variables (Device or Fleet level)
+      - ZELLO_USERNAME
+      - ZELLO_PASSWORD
+      - ZELLO_CHANNEL
+      - ZELLO_WORK_ACCOUNT      # empty if consumer Zello
+      - UDP_PORT=9123
+      - INPUT_RATE=8000
+      - ZELLO_RATE=16000
+      - AUDIO_THRESHOLD=700     # from client config
+      - VOX_SILENCE_MS=2000     # = 2 seconds
+    healthcheck:
+      test: ["CMD-SHELL", "ss -u -l | grep -q ':9123' || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    labels:
+      io.balena.features.dbus: '1'
+
+volumes:
+  data:

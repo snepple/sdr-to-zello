@@ -1,0 +1,33 @@
+{
+  "ver": 2,
+  "sources": [
+    {
+      "center": 154120625,
+      "rate": 2048000,
+      "error": 9375,
+      "digitalRecorders": 8,
+      "driver": "osmosdr",
+      "device": "rtl=0"
+    }
+  ],
+  "systems": [
+    {
+      "label": "Clinton Fire",
+      "type": "conventional",
+      "channels": [
+        154130000
+      ],
+      "squelch": -50,
+      "plugins": [
+        {
+          "name": "simplestream",
+          "settings": {
+            "host": "127.0.0.1",
+            "port": 9123,
+            "format": "udp"
+          }
+        }
+      ]
+    }
+  ]
+}
