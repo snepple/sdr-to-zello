@@ -54,16 +54,25 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y \
         ca-certificates \
         curl \
-        wget \
-        sox \
         fdkaac \
         gr-funcube \
         gr-iqbal \
-        libboost-log1.83.0 \
+        libairspyhf1 \
         libboost-chrono1.83.0t64 \
+        libboost-log1.83.0 \
+        libfreesrp0 \
+        libgnuradio-analog3.10.9t64 \
+        libgnuradio-digital3.10.9t64 \
+        libgnuradio-filter3.10.9t64 \
+        libgnuradio-network3.10.9t64 \
+        libgnuradio-osmosdr0.2.0t64 \
+        libgnuradio-uhd3.10.9t64 \
         libsoapysdr0.8 \
+        librtlsdr2 \
+        libxtrx0 \
         soapysdr0.8-module-all \
-        librtlsdr-dev \
+        sox \
+        wget \
  && rm -rf /var/lib/apt/lists/* \
  && rm -rf /usr/share/{doc,man,info} /usr/local/share/{doc,man,info}
 
