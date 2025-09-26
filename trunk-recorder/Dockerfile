@@ -81,7 +81,7 @@ RUN mkdir -p /data/configs /data/logs
 # GNURadio requires a place to store some files, can only be set via $HOME env var.
 ENV HOME=/tmp
 
-COPY entrypoint.sh /entrypoint.sh
+COPY trunk-recorder/entrypoint.sh /entrypoint.sh
 COPY configs/trunk-recorder.json /app/default-config.json
 RUN chmod +x /entrypoint.sh
 

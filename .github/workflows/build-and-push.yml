@@ -23,7 +23,8 @@ jobs:
       - name: Build & push trunk-recorder
         uses: docker/build-push-action@v6
         with:
-          context: ./trunk-recorder
+          context: .
+          file: trunk-recorder/Dockerfile
           platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/trunk-recorder:main
@@ -33,7 +34,8 @@ jobs:
       - name: Build & push zellostream
         uses: docker/build-push-action@v6
         with:
-          context: ./zellostream
+          context: .
+          file: zellostream/Dockerfile
           platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/zellostream:main
