@@ -1,6 +1,7 @@
 import json, os, subprocess, sys, shutil
 
 cfg_path = "/data/configs/zello.json"
+link_path = "/app/config.json"
 
 # Ensure config directory exists and copy default config if missing
 os.makedirs("/data/configs", exist_ok=True)
@@ -35,5 +36,14 @@ if vox_silence_ms:
 with open(cfg_path, "w") as f:
     json.dump(cfg, f, indent=2)
 
+# Mirror config where upstream script expects it
+try:
+    if os.path.islink(link_path) or os.path.exists(link_path):
+        os.remove(link_path)
+    os.symlink(cfg_path, link_path)
+except OSError:
+    shutil.copy(cfg_path, link_path)
+
 # Launch upstream script (adjust if entry changes upstream)
 sys.exit(subprocess.call(["python3", "/app/zellostream.py", "--config", cfg_path]))
+
