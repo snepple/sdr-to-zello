@@ -23,13 +23,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install --no-install-recommends -y \
         gnuradio-dev \
         gr-osmosdr \
-        libosmosdr-dev \
-        libgnuradio-digital3.10.9t64 \
-        libgnuradio-analog3.10.9t64 \
-        libgnuradio-filter3.10.9t64 \
-        libgnuradio-network3.10.9t64 \
-        libgnuradio-uhd3.10.9t64 \
-        libgnuradio-osmosdr0.2.0t64
+        libosmosdr-dev
 
 # Install SDR hardware libraries (changes rarely)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -100,12 +94,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         gr-iqbal \
         libboost-log1.83.0 \
         libboost-chrono1.83.0t64 \
-        libgnuradio-digital3.10.9t64 \
-        libgnuradio-analog3.10.9t64 \
-        libgnuradio-filter3.10.9t64 \
-        libgnuradio-network3.10.9t64 \
-        libgnuradio-uhd3.10.9t64 \
-        libgnuradio-osmosdr0.2.0t64 \
         libsoapysdr0.8 \
         soapysdr0.8-module-all
 
@@ -114,10 +102,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get install --no-install-recommends -y \
+        librtlsdr0 \
         libairspyhf1 \
-        libfreesrp0 \
-        librtlsdr2 \
-        libxtrx0
+        libfreesrp0
 
 COPY --from=builder /newroot /
 
