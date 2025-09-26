@@ -6,6 +6,9 @@ services:
       context: .
       dockerfile: zellostream/Dockerfile
     restart: unless-stopped
+    depends_on:
+      trunk-recorder:
+        condition: service_started
     network_mode: host
     volumes:
       - data:/data               # holds logs and runtime data
