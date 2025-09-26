@@ -63,8 +63,7 @@ RUN git clone --depth 1 https://github.com/TrunkRecorder/trunk-recorder.git .
 
 # Build trunk-recorder with cache mount for build artifacts
 WORKDIR /src/build
-RUN --mount=type=cache,target=/src/build,sharing=locked \
-    cmake .. && \
+RUN cmake .. && \
     make -j$(nproc) && \
     make DESTDIR=/newroot install
 
