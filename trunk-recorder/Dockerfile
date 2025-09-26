@@ -1,10 +1,7 @@
-# syntax=docker/dockerfile:1
 FROM ubuntu:24.04 AS builder
 
-# Install base build tools (changes rarely)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
+# Install dependencies for building trunk-recorder (Balena-compatible)
+RUN apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get install --no-install-recommends -y \
         build-essential \
@@ -14,24 +11,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         git \
         pkg-config \
         wget \
-        python3-six
-
-# Install GNU Radio and SDR libraries (changes rarely)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install --no-install-recommends -y \
+        python3-six \
         gnuradio-dev \
         gr-osmosdr \
-        libosmosdr-dev
-
-# Install SDR hardware libraries (changes rarely)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install --no-install-recommends -y \
+        libosmosdr-dev \
         libairspy-dev \
         libairspyhf-dev \
         libfreesrp-dev \
@@ -40,14 +23,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libuhd-dev \
         libusb-dev \
         libusb-1.0-0-dev \
-        libsoapysdr-dev
-
-# Install additional libraries (changes rarely)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install --no-install-recommends -y \
+        libsoapysdr-dev \
         libboost-all-dev \
         libcurl4-openssl-dev \
         libgmp-dev \
@@ -55,7 +31,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libpthread-stubs0-dev \
         libsndfile1-dev \
         libssl-dev \
-        ffmpeg
+        ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
 
 # Clone source code (changes when trunk-recorder updates)
 WORKDIR /src
