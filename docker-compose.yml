@@ -1,28 +1,6 @@
 version: "2.4"
 
 services:
-  trunk-recorder:
-    build:
-      context: .
-      dockerfile: trunk-recorder/Dockerfile
-    restart: unless-stopped
-    privileged: true             # access SDR
-    network_mode: host           # UDP on loopback
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
-    volumes:
-      - data:/data               # holds logs and runtime data
-    command: ["-c", "/data/configs/trunk-recorder.json"]
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-    labels:
-      io.balena.features.kernel-modules: '1'
-      io.balena.features.firmware: '1'
-      io.balena.features.dbus: '1'
-
   zellostream:
     build:
       context: .
