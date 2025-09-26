@@ -1,6 +1,13 @@
-import json, os, subprocess, sys
+import json, os, subprocess, sys, shutil
 
 cfg_path = "/data/configs/zello.json"
+
+# Ensure config directory exists and copy default config if missing
+os.makedirs("/data/configs", exist_ok=True)
+if not os.path.exists(cfg_path):
+    print("Copying default zello config to /data/configs/")
+    shutil.copy("/app/default-config.json", cfg_path)
+
 with open(cfg_path, "r") as f:
     cfg = json.load(f)
 

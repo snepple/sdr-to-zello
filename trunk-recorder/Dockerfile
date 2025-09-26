@@ -82,6 +82,7 @@ RUN mkdir -p /data/configs /data/logs
 ENV HOME=/tmp
 
 COPY entrypoint.sh /entrypoint.sh
+COPY configs/trunk-recorder.json /app/default-config.json
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

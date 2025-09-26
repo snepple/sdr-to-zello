@@ -11,5 +11,6 @@ RUN git clone --depth 1 https://github.com/aaknitt/zellostream.git /app
 RUN [ -f requirements.txt ] && pip install --no-cache-dir -r requirements.txt || true
 
 COPY run.py /app/run.py
+COPY configs/zello.json /app/default-config.json
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["python3", "/app/run.py"]

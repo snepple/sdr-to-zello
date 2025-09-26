@@ -2,7 +2,9 @@ version: "2.4"
 
 services:
   trunk-recorder:
-    build: ./trunk-recorder
+    build:
+      context: .
+      dockerfile: trunk-recorder/Dockerfile
     restart: unless-stopped
     privileged: true             # access SDR
     network_mode: host           # UDP on loopback
@@ -10,7 +12,6 @@ services:
       - /dev/bus/usb:/dev/bus/usb
     volumes:
       - data:/data               # holds logs and runtime data
-      - ./configs:/data/configs:ro # mount config files read-only
     command: ["-c", "/data/configs/trunk-recorder.json"]
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
@@ -23,7 +24,9 @@ services:
       io.balena.features.dbus: '1'
 
   zellostream:
-    build: ./zellostream
+    build:
+      context: .
+      dockerfile: zellostream/Dockerfile
     restart: unless-stopped
     depends_on:
       trunk-recorder:
@@ -31,7 +34,6 @@ services:
     network_mode: host
     volumes:
       - data:/data               # holds logs and runtime data
-      - ./configs:/data/configs:ro # mount config files read-only
     environment:
       # Set real values as Balena Service Variables (Device or Fleet level)
       - ZELLO_USERNAME
