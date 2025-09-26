@@ -68,10 +68,8 @@ RUN --mount=type=cache,target=/src/build,sharing=locked \
 # Stage 2 - Runtime image
 FROM ubuntu:24.04
 
-# Install runtime dependencies with cache mount
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
+# Install runtime dependencies (simplified to avoid cache mount issues)
+RUN apt-get update && \
     apt-get -y upgrade && \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get install --no-install-recommends -y \
@@ -79,29 +77,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         curl \
         wget \
         sox \
-        fdkaac && \
-    rm -rf /usr/share/{doc,man,info} /usr/local/share/{doc,man,info}
-
-# Install GNU Radio runtime libraries
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install --no-install-recommends -y \
+        fdkaac \
         gr-funcube \
         gr-iqbal \
         libboost-log1.83.0 \
         libboost-chrono1.83.0t64 \
         libsoapysdr0.8 \
-        soapysdr0.8-module-all
-
-# Install SDR hardware runtime libraries
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install --no-install-recommends -y \
-        librtlsdr0 \
-        libairspyhf1 \
-        libfreesrp0
+        soapysdr0.8-module-all \
+        librtlsdr-dev \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /usr/share/{doc,man,info} /usr/local/share/{doc,man,info}
 
 COPY --from=builder /newroot /
 
