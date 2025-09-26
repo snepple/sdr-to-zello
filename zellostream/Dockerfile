@@ -8,14 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gfortran \
     git \
     libasound2 \
-    libatlas-base-dev \
     libblas-dev \
+    libopenblas-dev \
     libffi-dev \
     libpulse-dev \
     libpulse0 \
     libportaudio2 \
     libsndfile1 \
     llvm \
+    libopenblas0 \
     pkg-config \
     portaudio19-dev \
     python3-dev \
