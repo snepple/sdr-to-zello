@@ -1,5 +1,6 @@
 {
   "ver": 2,
+  "audioStreaming": true,
   "sources": [
     {
       "center": 154120625,
@@ -14,22 +15,20 @@
     {
       "label": "Clinton Fire",
       "type": "conventional",
-      "channels": [
-        154130000
-      ],
-      "squelch": -50,
-      "plugins": [
+      "channels": [154130000],
+      "squelch": -50
+    }
+  ],
+  "plugins": [
+    {
+      "name": "simplestream",
+      "library": "libsimplestream.so",
+      "streams": [
         {
-          "name": "simplestream",
-          "library": "libsimplestream.so",
-          "streams": [
-            {
-              "TGID": 0,
-              "address": "127.0.0.1",
-              "port": 9123,
-              "sendJSON": false
-            }
-          ]
+          "TGID": 0,
+          "address": "127.0.0.1",
+          "port": 9123,
+          "sendJSON": false
         }
       ]
     }
