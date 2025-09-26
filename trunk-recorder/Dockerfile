@@ -32,15 +32,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install --no-install-recommends -y \
         libairspy-dev \
         libairspyhf-dev \
-        libbladerf-dev \
         libfreesrp-dev \
         libhackrf-dev \
-        libmirisdr-dev \
         librtlsdr-dev \
         libuhd-dev \
         libusb-dev \
         libusb-1.0-0-dev \
-        libxtrx-dev \
         libsoapysdr-dev
 
 # Install additional libraries (changes rarely)
