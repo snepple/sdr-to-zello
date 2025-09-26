@@ -20,12 +20,17 @@
       "squelch": -50,
       "plugins": [
         {
-          "name": "SimpleStream",
-          "settings": {
-            "host": "127.0.0.1",
-            "port": 9123,
-            "format": "udp"
-          }
+          "name": "simplestream",
+          "library": "libsimplestream.so",
+          "streams": [
+            {
+              "TGID": 0,
+              "address": "127.0.0.1",
+              "port": 9123,
+              "format": "udp",
+              "sendJSON": false
+            }
+          ]
         }
       ]
     }
