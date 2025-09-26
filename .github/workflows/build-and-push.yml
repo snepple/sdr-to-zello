@@ -27,6 +27,8 @@ jobs:
           platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/trunk-recorder:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build & push zellostream
         uses: docker/build-push-action@v6
@@ -35,6 +37,8 @@ jobs:
           platforms: linux/arm64,linux/amd64
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/zellostream:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     runs-on: ubuntu-latest

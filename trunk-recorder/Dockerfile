@@ -1,8 +1,10 @@
+# syntax=docker/dockerfile:1
 FROM ubuntu:24.04 AS builder
 
-# Install dependencies for building trunk-recorder
-RUN apt-get update && \
-    apt-get -y upgrade && \
+# Install base build tools (changes rarely)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get install --no-install-recommends -y \
         build-essential \
@@ -10,66 +12,112 @@ RUN apt-get update && \
         cmake \
         curl \
         git \
+        pkg-config \
+        wget \
+        python3-six
+
+# Install GNU Radio and SDR libraries (changes rarely)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    export DEBIAN_FRONTEND=noninteractive && \
+    apt-get install --no-install-recommends -y \
         gnuradio-dev \
         gr-osmosdr \
         libosmosdr-dev \
+        libgnuradio-digital3.10.9t64 \
+        libgnuradio-analog3.10.9t64 \
+        libgnuradio-filter3.10.9t64 \
+        libgnuradio-network3.10.9t64 \
+        libgnuradio-uhd3.10.9t64 \
+        libgnuradio-osmosdr0.2.0t64
+
+# Install SDR hardware libraries (changes rarely)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    export DEBIAN_FRONTEND=noninteractive && \
+    apt-get install --no-install-recommends -y \
         libairspy-dev \
         libairspyhf-dev \
         libbladerf-dev \
-        libboost-all-dev \
-        libcurl4-openssl-dev \
         libfreesrp-dev \
-        libgmp-dev \
         libhackrf-dev \
         libmirisdr-dev \
-        liborc-0.4-dev \
-        libpthread-stubs0-dev \
         librtlsdr-dev \
-        libsndfile1-dev \
-        libsoapysdr-dev \
-        libssl-dev \
         libuhd-dev \
         libusb-dev \
         libusb-1.0-0-dev \
         libxtrx-dev \
-        pkg-config \
-        wget \
-        python3-six \
-        ffmpeg \
- && rm -rf /var/lib/apt/lists/*
+        libsoapysdr-dev
 
+# Install additional libraries (changes rarely)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    export DEBIAN_FRONTEND=noninteractive && \
+    apt-get install --no-install-recommends -y \
+        libboost-all-dev \
+        libcurl4-openssl-dev \
+        libgmp-dev \
+        liborc-0.4-dev \
+        libpthread-stubs0-dev \
+        libsndfile1-dev \
+        libssl-dev \
+        ffmpeg
+
+# Clone source code (changes when trunk-recorder updates)
 WORKDIR /src
 RUN git clone --depth 1 https://github.com/TrunkRecorder/trunk-recorder.git .
+
+# Build trunk-recorder with cache mount for build artifacts
 WORKDIR /src/build
-RUN cmake .. && make -j$(nproc) && make DESTDIR=/newroot install
+RUN --mount=type=cache,target=/src/build,sharing=locked \
+    cmake .. && \
+    make -j$(nproc) && \
+    make DESTDIR=/newroot install
 
 # Stage 2 - Runtime image
 FROM ubuntu:24.04
-RUN apt-get update && apt-get -y upgrade && apt-get install --no-install-recommends -y \
-    ca-certificates \
-    gr-funcube \
-    gr-iqbal \
-    curl \
-    wget \
-    libboost-log1.83.0 \
-    libboost-chrono1.83.0t64 \
-    libgnuradio-digital3.10.9t64 \
-    libgnuradio-analog3.10.9t64 \
-    libgnuradio-filter3.10.9t64 \
-    libgnuradio-network3.10.9t64 \
-    libgnuradio-uhd3.10.9t64 \
-    libgnuradio-osmosdr0.2.0t64 \
-    libsoapysdr0.8 \
-    soapysdr0.8-module-all \
-    libairspyhf1 \
-    libfreesrp0 \
-    librtlsdr2 \
-    libxtrx0 \
-    sox \
-    fdkaac \
- && rm -rf /var/lib/apt/lists/* \
- && rm -rf /usr/share/{doc,man,info} \
- && rm -rf /usr/local/share/{doc,man,info}
+
+# Install runtime dependencies with cache mount
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get -y upgrade && \
+    export DEBIAN_FRONTEND=noninteractive && \
+    apt-get install --no-install-recommends -y \
+        ca-certificates \
+        curl \
+        wget \
+        sox \
+        fdkaac && \
+    rm -rf /usr/share/{doc,man,info} /usr/local/share/{doc,man,info}
+
+# Install GNU Radio runtime libraries
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    export DEBIAN_FRONTEND=noninteractive && \
+    apt-get install --no-install-recommends -y \
+        gr-funcube \
+        gr-iqbal \
+        libboost-log1.83.0 \
+        libboost-chrono1.83.0t64 \
+        libgnuradio-digital3.10.9t64 \
+        libgnuradio-analog3.10.9t64 \
+        libgnuradio-filter3.10.9t64 \
+        libgnuradio-network3.10.9t64 \
+        libgnuradio-uhd3.10.9t64 \
+        libgnuradio-osmosdr0.2.0t64 \
+        libsoapysdr0.8 \
+        soapysdr0.8-module-all
+
+# Install SDR hardware runtime libraries
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    export DEBIAN_FRONTEND=noninteractive && \
+    apt-get install --no-install-recommends -y \
+        libairspyhf1 \
+        libfreesrp0 \
+        librtlsdr2 \
+        libxtrx0
 
 COPY --from=builder /newroot /
 
