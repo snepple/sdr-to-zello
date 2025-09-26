@@ -19,6 +19,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Install GNU Radio and SDR libraries (changes rarely)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get install --no-install-recommends -y \
         gnuradio-dev \
@@ -28,6 +29,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Install SDR hardware libraries (changes rarely)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get install --no-install-recommends -y \
         libairspy-dev \
@@ -43,6 +45,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Install additional libraries (changes rarely)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get install --no-install-recommends -y \
         libboost-all-dev \
