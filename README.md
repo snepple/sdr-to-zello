@@ -75,15 +75,69 @@ No manual config file editing needed - everything is handled via Balena Service 
 - Verify UDP traffic: `tcpdump -n -i any udp port 9123`
 - Check container logs for connection and authentication status
 
-## Verification Checklist
+## Verification Steps
 
-- [ ] `lsusb` shows RTL2832U device in trunk-recorder container
-- [ ] Trunk Recorder logs show tuning and SimpleStream plugin active
-- [ ] `ss -u -l | grep 9123` shows bound UDP port in zellostream container
-- [ ] UDP traffic visible during radio activity
-- [ ] ZelloStream logs show successful Zello authentication
-- [ ] Audio appears in target Zello channel
-- [ ] VOX operates without false triggers or missed activations
+### 1. Check Device Health in Balena Dashboard
+- Both services should show "Running" status
+- Health checks should pass (green checkmarks)
+- No restart loops or error states
+
+### 2. Verify Hardware Detection
+```bash
+# In trunk-recorder container terminal (via Balena dashboard)
+lsusb | grep RTL2832U
+# Should show: Bus 001 Device 002: ID 0bda:2838 Realtek RTL2832U DVB-T
+
+# Check for kernel driver conflicts
+dmesg | grep dvb
+# Should be clean or show drivers unloaded
+```
+
+### 3. Monitor Trunk Recorder Logs
+Look for these key indicators:
+```
+[INFO] Using device #0: RTL2832U
+[INFO] Tuning to 154.12 MHz
+[INFO] SimpleStream plugin started on 127.0.0.1:9123
+```
+
+### 4. Verify UDP Audio Stream
+```bash
+# In zellostream container terminal
+ss -u -l | grep 9123
+# Should show: UNCONN  0  0  127.0.0.1:9123
+
+# Monitor UDP traffic (if tcpdump available)
+tcpdump -n -i any udp port 9123
+# Should show packets when radio activity occurs
+```
+
+### 5. Check ZelloStream Authentication
+Monitor zellostream logs for:
+```
+[INFO] Successfully authenticated with Zello
+[INFO] Connected to channel: Clinton
+[DEBUG] Audio threshold: 700, VOX silence: 2000ms
+```
+
+### 6. Test End-to-End Audio Flow
+1. **Radio Activity**: Wait for or trigger radio traffic on 154.13 MHz
+2. **Trunk Recorder**: Should log "Recording started" messages
+3. **UDP Stream**: Should see packets in tcpdump or netstat activity
+4. **ZelloStream**: Should log "Audio above threshold, transmitting"
+5. **Zello Channel**: Audio should appear in "Clinton" channel
+
+### Troubleshooting Checklist
+
+- [ ] RTL-SDR hardware detected by trunk-recorder
+- [ ] No "device busy" errors (DVB drivers properly unloaded)
+- [ ] Trunk Recorder tuned to correct frequency (154.120625 MHz center, 154.13 MHz channel)
+- [ ] SimpleStream plugin active on UDP port 9123
+- [ ] ZelloStream bound to UDP port 9123
+- [ ] ZelloStream successfully authenticated to Zello
+- [ ] Connected to correct Zello channel
+- [ ] VOX threshold appropriate (no false triggers or missed audio)
+- [ ] Audio quality good in Zello channel
 
 ## Development
 

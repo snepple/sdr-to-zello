@@ -76,21 +76,59 @@ balena push sam27/md3zello
 
 ## Verification Steps
 
-1. **Check Balena Dashboard**
-   - Verify release is created
-   - Monitor build progress
-   - Check device download status
+### 1. Check Balena Dashboard
+- **Release Status**: Verify release is created and downloaded to device
+- **Service Status**: Both `trunk-recorder` and `zellostream` should show "Running"
+- **Health Checks**: Green checkmarks for both services
+- **Device Status**: Online and accessible
 
-2. **Device Health Checks**
-   - Both services should show "Running"
-   - Health checks should pass
-   - Logs should show successful initialization
+### 2. Verify Audio Pipeline
+Follow these steps in order to confirm end-to-end functionality:
 
-3. **Audio Pipeline Test**
-   - Trunk Recorder should detect RTL-SDR
-   - UDP traffic on port 9123
-   - ZelloStream should authenticate successfully
-   - Audio should appear in Zello channel "Clinton"
+#### Step 2.1: Check RTL-SDR Hardware
+```bash
+# Access trunk-recorder container terminal via Balena dashboard
+lsusb | grep RTL2832U
+# Expected: Bus 001 Device 002: ID 0bda:2838 Realtek RTL2832U DVB-T
+```
+
+#### Step 2.2: Monitor Trunk Recorder Logs
+Look for these success indicators:
+```
+[INFO] Using device #0: RTL2832U
+[INFO] Tuning to 154.120625 MHz
+[INFO] SimpleStream plugin started on 127.0.0.1:9123
+```
+
+#### Step 2.3: Verify UDP Stream
+```bash
+# In zellostream container terminal
+ss -u -l | grep 9123
+# Expected: UNCONN  0  0  127.0.0.1:9123
+```
+
+#### Step 2.4: Check ZelloStream Authentication
+Monitor logs for:
+```
+[INFO] Successfully authenticated with Zello
+[INFO] Connected to channel: Clinton
+[DEBUG] Audio threshold: 700, VOX silence: 2000ms
+```
+
+#### Step 2.5: Test Live Audio Flow
+1. Wait for radio activity on 154.13 MHz (Clinton Fire frequency)
+2. Trunk Recorder should log activity and start streaming
+3. ZelloStream should detect audio above threshold (700)
+4. Audio should appear in Zello channel "Clinton"
+
+### 3. Success Criteria
+- ✅ RTL-SDR hardware detected and accessible
+- ✅ Trunk Recorder tuned to correct frequency
+- ✅ SimpleStream plugin active on UDP port 9123
+- ✅ ZelloStream authenticated to Zello Work account "md3md3"
+- ✅ Connected to Zello channel "Clinton"
+- ✅ Audio streaming from radio to Zello channel
+- ✅ VOX working properly (no false triggers, catches all audio)
 
 ## Troubleshooting
 

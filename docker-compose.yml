@@ -9,7 +9,8 @@ services:
     devices:
       - /dev/bus/usb:/dev/bus/usb
     volumes:
-      - data:/data               # holds /data/configs/*.json + logs
+      - data:/data               # holds logs and runtime data
+      - ./configs:/data/configs:ro # mount config files read-only
     command: ["-c", "/data/configs/trunk-recorder.json"]
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
@@ -29,7 +30,8 @@ services:
         condition: service_started
     network_mode: host
     volumes:
-      - data:/data
+      - data:/data               # holds logs and runtime data
+      - ./configs:/data/configs:ro # mount config files read-only
     environment:
       # Set real values as Balena Service Variables (Device or Fleet level)
       - ZELLO_USERNAME
