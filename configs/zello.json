@@ -5,7 +5,7 @@
     "zello_work_account_name": "PLACEHOLDER_WORK_ACCOUNT",
     "audio_source": "UDP",
     "UDP_PORT": 9123,
-    "vox_silence_time": 2000,
+    "vox_silence_time": 2,
     "audio_threshold": 700,
     "zello_sample_rate": 16000,
     "audio_input_sample_rate": 16000,
