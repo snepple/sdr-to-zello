@@ -101,6 +101,7 @@ ENV HOME=/tmp
 
 COPY trunk-recorder/entrypoint.sh /entrypoint.sh
 COPY configs/trunk-recorder.json /app/default-config.json
+COPY trunk-recorder/configure.py /app/configure.py
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

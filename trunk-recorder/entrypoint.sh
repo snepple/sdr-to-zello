@@ -11,5 +11,8 @@ if [ ! -f /data/configs/trunk-recorder.json ]; then
     cp /app/default-config.json /data/configs/trunk-recorder.json
 fi
 
+# Apply environment overrides (best-effort)
+python3 /app/configure.py || echo "Warning: failed to apply trunk-recorder overrides"
+
 # Pass-through args from docker-compose (e.g., -c /data/configs/trunk-recorder.json)
 exec trunk-recorder "$@"
