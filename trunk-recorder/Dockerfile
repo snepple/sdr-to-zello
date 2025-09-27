@@ -24,6 +24,7 @@ RUN apt-get update && \
         libusb-dev \
         libusb-1.0-0-dev \
         libsoapysdr-dev \
+        libsox-dev \
         libboost-all-dev \
         libcurl4-openssl-dev \
         libgmp-dev \
@@ -31,6 +32,8 @@ RUN apt-get update && \
         libpthread-stubs0-dev \
         libsndfile1-dev \
         libssl-dev \
+        libzmq3-dev \
+        sox \
         ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 
@@ -38,9 +41,15 @@ RUN apt-get update && \
 WORKDIR /src
 RUN git clone --depth 1 https://github.com/TrunkRecorder/trunk-recorder.git .
 
+# Enable SimpleStream plugin (commented out upstream by default)
+RUN sed -i 's/#add_subdirectory(plugins\/simplestream)/add_subdirectory(plugins\/simplestream)/' CMakeLists.txt
+
 # Build trunk-recorder with cache mount for build artifacts
 WORKDIR /src/build
-RUN cmake .. && \
+RUN cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_PLUGINS=ON \
+        -DBUILD_SIMPLESTREAM=ON && \
     make -j$(nproc) && \
     make DESTDIR=/newroot install
 

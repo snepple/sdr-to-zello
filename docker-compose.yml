@@ -41,7 +41,7 @@ services:
       - ZELLO_CHANNEL
       - ZELLO_WORK_ACCOUNT      # empty if consumer Zello
       - UDP_PORT=9123
-      - INPUT_RATE=8000
+      - INPUT_RATE=16000
       - ZELLO_RATE=16000
       - AUDIO_THRESHOLD=700     # from client config
       - VOX_SILENCE_MS=2000     # = 2 seconds

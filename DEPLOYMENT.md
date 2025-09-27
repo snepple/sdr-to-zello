@@ -42,7 +42,7 @@ ZELLO_WORK_ACCOUNT=
 
 ```
 UDP_PORT=9123
-INPUT_RATE=8000
+INPUT_RATE=16000
 ZELLO_RATE=16000
 AUDIO_THRESHOLD=700
 VOX_SILENCE_MS=2000
@@ -100,14 +100,21 @@ Look for these success indicators:
 [INFO] SimpleStream plugin started on 127.0.0.1:9123
 ```
 
-#### Step 2.3: Verify UDP Stream
+#### Step 2.3: Confirm SimpleStream Plugin
+```bash
+# Inside trunk-recorder container
+ls /usr/local/lib/trunk-recorder/plugins | grep simplestream
+# Expected: libsimplestream.so
+```
+
+#### Step 2.4: Verify UDP Stream
 ```bash
 # In zellostream container terminal
 ss -u -l | grep 9123
 # Expected: UNCONN  0  0  127.0.0.1:9123
 ```
 
-#### Step 2.4: Check ZelloStream Authentication
+#### Step 2.5: Check ZelloStream Authentication
 Monitor logs for:
 ```
 [INFO] Successfully authenticated with Zello
@@ -115,7 +122,7 @@ Monitor logs for:
 [DEBUG] Audio threshold: 700, VOX silence: 2000ms
 ```
 
-#### Step 2.5: Test Live Audio Flow
+#### Step 2.6: Test Live Audio Flow
 1. Wait for radio activity on 154.13 MHz (Clinton Fire frequency)
 2. Trunk Recorder should log activity and start streaming
 3. ZelloStream should detect audio above threshold (700)
