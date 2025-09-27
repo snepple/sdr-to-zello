@@ -48,6 +48,11 @@ AUDIO_THRESHOLD=700
 VOX_SILENCE_MS=2000
 ```
 
+### SDR Gain
+
+- The default config sets the RTL-SDR gain to `40` dB (`configs/trunk-recorder.json`).
+- Adjust this value to match your hardware/noise floor; use tools like GQRX or `rtl_test -t` to determine the best setting.
+
 ## Deployment Methods
 
 ### Automatic Deployment

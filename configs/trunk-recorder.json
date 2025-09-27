@@ -6,6 +6,7 @@
       "center": 154120625,
       "rate": 2048000,
       "error": 9375,
+      "gain": 40,
       "digitalRecorders": 8,
       "driver": "osmosdr",
       "device": "rtl=0"
