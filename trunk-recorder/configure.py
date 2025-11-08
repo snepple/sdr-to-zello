@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+import shutil  # <-- IMPORT ADDED
 from typing import Any, Callable
 
 CFG_PATH = "/data/configs/trunk-recorder.json"
@@ -49,6 +50,7 @@ def main() -> int:
     if source is None:
         print("No sources defined; nothing to override.")
     else:
+        # ... (all source settings remain the same) ...
         set_env(
             cfg,
             "TR_CENTER_HZ",
@@ -86,31 +88,47 @@ def main() -> int:
             lambda raw: system.__setitem__("squelch", int(float(raw))),
         )
         
-        # <<< CORRECTED SECTION FOR CHANNEL/CHANNELFILE >>>
-        # Handle TR_CHANNEL_FILE and TR_CHANNELS_HZ, which are mutually exclusive.
-        # We must POP (remove) the other key, not just set it to null.
+        # <<< MODIFIED SECTION FOR CHANNEL/CHANNELFILE >>>
         
         raw_channel_file = os.getenv("TR_CHANNEL_FILE")
         raw_channels_hz = os.getenv("TR_CHANNELS_HZ")
 
         if raw_channel_file is not None and raw_channel_file.strip() != "":
-            # If TR_CHANNEL_FILE is set, use it and REMOVE 'channels'
-            system["channelFile"] = raw_channel_file.strip()
-            system.pop('channels', None) # Safely remove 'channels' key if it exists
-            print(f"Using TR_CHANNEL_FILE: {system['channelFile']}. Removing 'channels' key.")
-        
+            # 1. Get the simple filename from the variable
+            filename = raw_channel_file.strip()
+            
+            # 2. Set the filename in the JSON
+            system["channelFile"] = filename
+            system.pop('channels', None)
+            print(f"Using TR_CHANNEL_FILE: {filename}. Removing 'channels' key.")
+            
+            # 3. Define source and destination paths
+            source_path = f"/data/configs/{filename}"
+            # Destination is the current working directory
+            dest_path = f"./{filename}" 
+            
+            # 4. Copy the file from persistent storage to the executable's directory
+            try:
+                if os.path.exists(source_path):
+                    shutil.copy(source_path, dest_path)
+                    print(f"Successfully copied channel file from {source_path} to {dest_path}")
+                else:
+                    print(f"Warning: Channel file not found at {source_path}. Trunk Recorder may fail.")
+            except Exception as e:
+                print(f"CRITICAL: Error copying channel file: {e}. Trunk Recorder will likely fail.")
+            
         elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
-            # Else, if TR_CHANNELS_HZ is set, use it and REMOVE 'channelFile'
+            # This logic remains the same
             try:
                 parts = [part.strip() for part in raw_channels_hz.split(",") if part.strip()]
                 if not parts:
                     raise ValueError("no values supplied for TR_CHANNELS_HZ")
                 system["channels"] = [int(float(part)) for part in parts]
-                system.pop('channelFile', None) # Safely remove 'channelFile' key if it exists
+                system.pop('channelFile', None)
                 print(f"Using TR_CHANNELS_HZ. Removing 'channelFile' key.")
             except ValueError as exc:
                 print(f"Skipping TR_CHANNELS_HZ: {exc}")
-        # <<< END OF CORRECTED SECTION >>>
+        # <<< END OF MODIFIED SECTION >>>
 
         set_env(
             cfg,
@@ -133,6 +151,7 @@ def main() -> int:
             lambda raw: system.__setitem__("modulation", raw.strip()),
         )
 
+    # ... (rest of plugin logic remains the same) ...
     plugins = cfg.get("plugins") or []
     if plugins:
         plugin = plugins[0]
