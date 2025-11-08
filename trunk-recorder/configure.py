@@ -2,17 +2,27 @@
 import json
 import os
 import sys
+import shutil
 from typing import Any, Callable
 
-# This path is still correct, as it's where the persistent config is loaded from
+# This is the config file that is READ and WRITTEN
 CFG_PATH = "/data/configs/trunk-recorder.json"
 
 def load_config(path: str) -> Any:
     try:
-        with open(path, "r", encoding="utf-8") as handle:
+        # On first boot, this file might not exist,
+        # so we check for the /app/ version as a fallback.
+        base_config_path = "/app/configs/trunk-recorder.json"
+        
+        load_path = path
+        if not os.path.exists(path) and os.path.exists(base_config_path):
+             print(f"Config file {path} not found. Loading from base config {base_config_path}.")
+             load_path = base_config_path
+        
+        with open(load_path, "r", encoding="utf-8") as handle:
             return json.load(handle)
     except FileNotFoundError:
-        print(f"Config file {path} not found; skipping overrides.")
+        print(f"Config file {path} and base config {base_config_path} not found. Skipping overrides.")
         return None
     except json.JSONDecodeError as exc:
         print(f"Unable to parse {path}: {exc}")
@@ -88,18 +98,42 @@ def main() -> int:
             lambda raw: system.__setitem__("squelch", int(float(raw))),
         )
         
-        # <<< SIMPLIFIED SECTION FOR CHANNEL/CHANNELFILE >>>
+        # <<< FINALIZED SECTION FOR CHANNEL/CHANNELFILE >>>
         
         raw_channel_file = os.getenv("TR_CHANNEL_FILE")
         raw_channels_hz = os.getenv("TR_CHANNELS_HZ")
 
         if raw_channel_file is not None and raw_channel_file.strip() != "":
-            # If TR_CHANNEL_FILE is set, use it and remove 'channels'
-            # This will now set the value to "configs/channelfile.csv"
-            system["channelFile"] = raw_channel_file.strip()
+            
+            print("\n--- Copying Channel File ---")
+            
+            # 1. Get the simple filename (e.g., "channelfile.csv")
+            filename = raw_channel_file.strip()
+            
+            # 2. Define Source (from Git repo) and Destination (Trunk Recorder CWD)
+            source_path = f"/app/configs/{filename}"
+            dest_path = f"/data/configs/{filename}"
+
+            print(f"Source file (from repo): {source_path}")
+            print(f"Destination file (for runtime): {dest_path}")
+
+            # 3. Attempt to copy the file
+            try:
+                if not os.path.exists(source_path):
+                     print(f"CRITICAL: Source file not found at {source_path}. Ensure it's in your 'configs' dir in Git.")
+                else:
+                    shutil.copy(source_path, dest_path)
+                    print("File copy SUCCEEDED.")
+            except Exception as e:
+                print(f"CRITICAL: File copy FAILED. Error: {e}")
+
+            # 4. Set JSON to use the simple filename
+            system["channelFile"] = filename
             system.pop('channels', None)
-            print(f"Using TR_CHANNEL_FILE: {system['channelFile']}. Removing 'channels' key.")
-        
+            print(f"Set JSON 'channelFile' to: {filename}")
+            print("--- End Channel File ---")
+
+            
         elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
             # This logic remains the same
             try:
@@ -111,7 +145,7 @@ def main() -> int:
                 print(f"Using TR_CHANNELS_HZ. Removing 'channelFile' key.")
             except ValueError as exc:
                 print(f"Skipping TR_CHANNELS_HZ: {exc}")
-        # <<< END OF SIMPLIFIED SECTION >>>
+        # <<< END OF FINALIZED SECTION >>>
 
         set_env(
             cfg,
