@@ -2,7 +2,7 @@
 import json
 import os
 import sys
-import shutil  # <-- Required for copy and finding executable
+import shutil
 from typing import Any, Callable
 
 CFG_PATH = "/data/configs/trunk-recorder.json"
@@ -50,7 +50,7 @@ def main() -> int:
     if source is None:
         print("No sources defined; nothing to override.")
     else:
-        # ... (all source settings remain the same) ...
+        # ... (all source settings) ...
         set_env(
             cfg,
             "TR_CENTER_HZ",
@@ -88,43 +88,50 @@ def main() -> int:
             lambda raw: system.__setitem__("squelch", int(float(raw))),
         )
         
-        # <<< FINAL CORRECTED SECTION FOR CHANNEL/CHANNELFILE >>>
+        # <<< DEBUGGING SECTION FOR CHANNEL/CHANNELFILE >>>
         
         raw_channel_file = os.getenv("TR_CHANNEL_FILE")
         raw_channels_hz = os.getenv("TR_CHANNELS_HZ")
 
         if raw_channel_file is not None and raw_channel_file.strip() != "":
-            # 1. Get the simple filename (e.g., "channelfile.csv")
-            filename = raw_channel_file.strip()
             
-            # 2. Set the simple filename in the JSON
+            print("\n--- DEBUGGING CHANNEL FILE ---")
+            
+            # 1. Get CWD (where the script is running)
+            cwd = os.getcwd()
+            print(f"Python script Current Working Directory (CWD): {cwd}")
+
+            # 2. Define file paths
+            filename = raw_channel_file.strip()
+            source_path = f"/data/configs/{filename}"
+            # Destination is the CWD
+            dest_path = os.path.join(cwd, filename) 
+
+            print(f"Source file path: {source_path}")
+            print(f"Destination file path (CWD): {dest_path}")
+
+            # 3. Check if source exists
+            source_exists = os.path.exists(source_path)
+            print(f"Does source file exist at {source_path}? {source_exists}")
+            
+            if not source_exists:
+                print("CRITICAL: Source file not found. Please ensure 'channelfile.csv' is in your 'configs' directory.")
+
+            # 4. Set JSON config
             system["channelFile"] = filename
             system.pop('channels', None)
-            print(f"Using TR_CHANNEL_FILE: {filename}. Removing 'channels' key.")
-            
-            # 3. Define the source path of the file
-            source_path = f"/data/configs/{filename}"
-            
-            # 4. Find the location of the 'trunk-recorder' executable
-            exe_path = shutil.which('trunk-recorder')
-            
-            if exe_path:
-                # 5. Get the *directory* of the executable
-                exe_dir = os.path.dirname(exe_path)
-                dest_path = os.path.join(exe_dir, filename)
-                
-                # 6. Copy the file from persistent storage to the executable's directory
-                try:
-                    if os.path.exists(source_path):
-                        shutil.copy(source_path, dest_path)
-                        print(f"Successfully copied channel file from {source_path} to {dest_path}")
-                    else:
-                        print(f"Warning: Channel file not found at {source_path}. Trunk Recorder may fail.")
-                except Exception as e:
-                    # Show permission errors, etc.
-                    print(f"CRITICAL: Error copying channel file to {dest_path}: {e}")
-            else:
-                print("CRITICAL: 'trunk-recorder' executable not found in PATH. Cannot copy channel file.")
+            print(f"Set JSON 'channelFile' to: {filename}")
+
+            # 5. Attempt to copy the file
+            print(f"Attempting to copy file from {source_path} to {dest_path}...")
+            try:
+                shutil.copy(source_path, dest_path)
+                print("File copy SUCCEEDED.")
+                print(f"Contents of CWD ({cwd}): {os.listdir(cwd)}")
+            except Exception as e:
+                print(f"CRITICAL: File copy FAILED. Error: {e}")
+
+            print("--- END DEBUGGING ---")
             
         elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
             # This logic remains the same
@@ -137,7 +144,7 @@ def main() -> int:
                 print(f"Using TR_CHANNELS_HZ. Removing 'channelFile' key.")
             except ValueError as exc:
                 print(f"Skipping TR_CHANNELS_HZ: {exc}")
-        # <<< END OF CORRECTED SECTION >>>
+        # <<< END OF DEBUGGING SECTION >>>
 
         set_env(
             cfg,
@@ -160,7 +167,7 @@ def main() -> int:
             lambda raw: system.__setitem__("modulation", raw.strip()),
         )
 
-    # ... (rest of plugin logic remains the same) ...
+    # ... (rest of plugin logic) ...
     plugins = cfg.get("plugins") or []
     if plugins:
         plugin = plugins[0]
