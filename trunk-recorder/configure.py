@@ -86,32 +86,31 @@ def main() -> int:
             lambda raw: system.__setitem__("squelch", int(float(raw))),
         )
         
-        # <<< MODIFIED SECTION FOR CHANNEL/CHANNELFILE >>>
+        # <<< CORRECTED SECTION FOR CHANNEL/CHANNELFILE >>>
         # Handle TR_CHANNEL_FILE and TR_CHANNELS_HZ, which are mutually exclusive.
-        # TR_CHANNEL_FILE takes precedence.
+        # We must POP (remove) the other key, not just set it to null.
         
         raw_channel_file = os.getenv("TR_CHANNEL_FILE")
         raw_channels_hz = os.getenv("TR_CHANNELS_HZ")
 
         if raw_channel_file is not None and raw_channel_file.strip() != "":
-            # If TR_CHANNEL_FILE is set, use it and nullify 'channels'
+            # If TR_CHANNEL_FILE is set, use it and REMOVE 'channels'
             system["channelFile"] = raw_channel_file.strip()
-            system["channels"] = None
-            print(f"Using TR_CHANNEL_FILE: {system['channelFile']}. Setting 'channels' to null.")
+            system.pop('channels', None) # Safely remove 'channels' key if it exists
+            print(f"Using TR_CHANNEL_FILE: {system['channelFile']}. Removing 'channels' key.")
         
         elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
-            # Else, if TR_CHANNELS_HZ is set, use it and nullify 'channelFile'
+            # Else, if TR_CHANNELS_HZ is set, use it and REMOVE 'channelFile'
             try:
                 parts = [part.strip() for part in raw_channels_hz.split(",") if part.strip()]
                 if not parts:
                     raise ValueError("no values supplied for TR_CHANNELS_HZ")
                 system["channels"] = [int(float(part)) for part in parts]
-                system["channelFile"] = None
-                print(f"Using TR_CHANNELS_HZ. Setting 'channelFile' to null.")
+                system.pop('channelFile', None) # Safely remove 'channelFile' key if it exists
+                print(f"Using TR_CHANNELS_HZ. Removing 'channelFile' key.")
             except ValueError as exc:
                 print(f"Skipping TR_CHANNELS_HZ: {exc}")
-        # If neither is set, we don't modify the config file's settings.
-        # <<< END OF MODIFIED SECTION >>>
+        # <<< END OF CORRECTED SECTION >>>
 
         set_env(
             cfg,
