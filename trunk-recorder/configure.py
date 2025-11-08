@@ -60,7 +60,7 @@ def main() -> int:
     if source is None:
         print("No sources defined; nothing to override.")
     else:
-        # ... (all other source settings) ...
+        # ... (all source settings) ...
         set_env(
             cfg,
             "TR_CENTER_HZ",
@@ -87,59 +87,53 @@ def main() -> int:
             lambda raw: source.__setitem__("signalDetectorThreshold", coerce_int(raw, "signalDetectorThreshold", allow_float=True)),
         )
 
-        # <<< CORRECTED SQUELCH LOGIC >>>
-        # A 'squelch' key on the source is mandatory for conventional systems.
-        
-        raw_squelch = os.getenv("TR_SQUELCH_DB")
-        
-        if raw_squelch is not None and raw_squelch.strip() != "":
-            # 1. If variable is set, override the value
-            try:
-                source["squelch"] = int(float(raw_squelch))
-                print(f"Setting 'source.squelch' from TR_SQUELCH_DB: {source['squelch']}")
-            except ValueError as exc:
-                print(f"Skipping TR_SQUELCH_DB: {exc}")
-        elif "squelch" not in source:
-            # 2. If variable NOT set AND key is missing from config file, set a default
-            source["squelch"] = 0 
-            print(f"CRITICAL: 'squelch' not found. Setting 'source.squelch' to default: 0 to prevent crash.")
-        else:
-            # 3. If variable NOT set, but key EXISTS in file, do nothing.
-            print(f"Using 'source.squelch' from config file: {source['squelch']}")
-        # <<< END OF CORRECTED SQUELCH LOGIC >>>
-
-
     systems = cfg.get("systems") or []
     system = systems[0] if systems else None
     if system is None:
         print("No systems defined; skipping system overrides.")
     else:
+        set_env(
+            cfg,
+            "TR_SQUELCH_DB",
+            lambda raw: system.__setitem__("squelch", int(float(raw))),
+        )
         
-        # <<< CLEANED SECTION FOR CHANNEL/CHANNELFILE >>>
+        # <<< FINALIZED SECTION FOR CHANNEL/CHANNELFILE >>>
         
         raw_channel_file = os.getenv("TR_CHANNEL_FILE")
         raw_channels_hz = os.getenv("TR_CHANNELS_HZ")
 
         if raw_channel_file is not None and raw_channel_file.strip() != "":
             
+            print("\n--- Copying Channel File ---")
+            
+            # 1. Get the simple filename (e.g., "channelfile.csv")
             filename = raw_channel_file.strip()
+            
+            # 2. Define Source (from Git repo) and Destination (Trunk Recorder CWD)
             source_path = f"/app/configs/{filename}"
-            dest_path = f"/app/{filename}" # Copy to CWD of /app
+            
+            # <<< THIS IS THE CORRECTED LINE >>>
+            dest_path = f"/app/{filename}"
 
+            print(f"Source file (from repo): {source_path}")
+            print(f"Destination file (for runtime): {dest_path}")
+
+            # 3. Attempt to copy the file
             try:
                 if not os.path.exists(source_path):
                      print(f"CRITICAL: Source file not found at {source_path}. Ensure it's in your 'configs' dir in Git.")
                 else:
-                    # Only copy if file doesn't already exist or is different
-                    if not os.path.exists(dest_path) or not shutil.cmp(source_path, dest_path):
-                        shutil.copy(source_path, dest_path)
-                        print(f"Successfully copied channel file to {dest_path}")
+                    shutil.copy(source_path, dest_path)
+                    print("File copy SUCCEEDED.")
             except Exception as e:
                 print(f"CRITICAL: File copy FAILED. Error: {e}")
 
-            # Set JSON to use the simple filename
+            # 4. Set JSON to use the simple filename
             system["channelFile"] = filename
             system.pop('channels', None)
+            print(f"Set JSON 'channelFile' to: {filename}")
+            print("--- End Channel File ---")
 
             
         elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
@@ -153,7 +147,7 @@ def main() -> int:
                 print(f"Using TR_CHANNELS_HZ. Removing 'channelFile' key.")
             except ValueError as exc:
                 print(f"Skipping TR_CHANNELS_HZ: {exc}")
-        # <<< END OF CLEANED SECTION >>>
+        # <<< END OF FINALIZED SECTION >>>
 
         set_env(
             cfg,
