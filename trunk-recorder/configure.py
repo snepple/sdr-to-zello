@@ -88,14 +88,24 @@ def main() -> int:
         )
 
         # <<< CORRECTED SQUELCH LOGIC >>>
-        # The conditional logic was wrong. A base squelch on the 'source'
-        # is always required for conventional systems.
-        # We will now just apply the override if it exists.
-        set_env(
-            cfg,
-            "TR_SQUELCH_DB",
-            lambda raw: source.__setitem__("squelch", int(float(raw))),
-        )
+        # A 'squelch' key on the source is mandatory for conventional systems.
+        
+        raw_squelch = os.getenv("TR_SQUELCH_DB")
+        
+        if raw_squelch is not None and raw_squelch.strip() != "":
+            # 1. If variable is set, override the value
+            try:
+                source["squelch"] = int(float(raw_squelch))
+                print(f"Setting 'source.squelch' from TR_SQUELCH_DB: {source['squelch']}")
+            except ValueError as exc:
+                print(f"Skipping TR_SQUELCH_DB: {exc}")
+        elif "squelch" not in source:
+            # 2. If variable NOT set AND key is missing from config file, set a default
+            source["squelch"] = 0 
+            print(f"CRITICAL: 'squelch' not found. Setting 'source.squelch' to default: 0 to prevent crash.")
+        else:
+            # 3. If variable NOT set, but key EXISTS in file, do nothing.
+            print(f"Using 'source.squelch' from config file: {source['squelch']}")
         # <<< END OF CORRECTED SQUELCH LOGIC >>>
 
 
