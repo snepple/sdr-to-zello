@@ -14,7 +14,7 @@ services:
       - data:/data               # holds logs and runtime data
       # This line makes your local 'configs' folder available inside
       # the container at '/app/configs'. We add ':ro' for read-only.
-      - ./configs:/app/configs:ro
+    
       
       # This line is for your persistent config file
       - /data/configs
