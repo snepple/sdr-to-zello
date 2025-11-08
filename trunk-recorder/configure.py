@@ -88,7 +88,7 @@ def main() -> int:
             lambda raw: system.__setitem__("squelch", int(float(raw))),
         )
         
-        # <<< DEBUGGING SECTION FOR CHANNEL/CHANNELFILE >>>
+        # <<< FINALIZED SECTION FOR CHANNEL/CHANNELFILE >>>
         
         raw_channel_file = os.getenv("TR_CHANNEL_FILE")
         raw_channels_hz = os.getenv("TR_CHANNELS_HZ")
@@ -97,14 +97,18 @@ def main() -> int:
             
             print("\n--- DEBUGGING CHANNEL FILE ---")
             
-            # 1. Get CWD (where the script is running)
+            # 1. Get CWD (where the script is running, e.g., /app)
             cwd = os.getcwd()
             print(f"Python script Current Working Directory (CWD): {cwd}")
 
             # 2. Define file paths
             filename = raw_channel_file.strip()
-            source_path = f"/data/{filename}" # Based on your repo root
-            dest_path = os.path.join(cwd, filename) # CWD is /app
+            
+            # This path is correct IF you moved channelfile.csv into your 'configs' folder
+            source_path = f"/data/configs/{filename}" 
+            
+            # Destination is the CWD (e.g., /app)
+            dest_path = os.path.join(cwd, filename) 
 
             print(f"Source file path: {source_path}")
             print(f"Destination file path (CWD): {dest_path}")
@@ -114,7 +118,7 @@ def main() -> int:
             print(f"Does source file exist at {source_path}? {source_exists}")
             
             if not source_exists:
-                print(f"CRITICAL: Source file not found at {source_path}. Please ensure '{filename}' is in the ROOT of your project.")
+                print(f"CRITICAL: Source file not found at {source_path}. Please ensure '{filename}' is in your 'configs' directory.")
 
             # 4. Set JSON config
             system["channelFile"] = filename
@@ -134,8 +138,6 @@ def main() -> int:
             
         elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
             # This logic remains the same
-            
-            # <<< THIS IS THE LINE THAT WAS FIXED (removed the period) >>>
             try:
                 parts = [part.strip() for part in raw_channels_hz.split(",") if part.strip()]
                 if not parts:
@@ -145,7 +147,7 @@ def main() -> int:
                 print(f"Using TR_CHANNELS_HZ. Removing 'channelFile' key.")
             except ValueError as exc:
                 print(f"Skipping TR_CHANNELS_HZ: {exc}")
-        # <<< END OF DEBUGGING SECTION >>>
+        # <<< END OF FINALIZED SECTION >>>
 
         set_env(
             cfg,
