@@ -103,12 +103,8 @@ def main() -> int:
 
             # 2. Define file paths
             filename = raw_channel_file.strip()
-            
-            # <<< THIS IS THE ONLY LINE THAT CHANGED >>>
-            source_path = f"/data/{filename}" # Changed from /data/configs/
-            
-            # Destination is the CWD
-            dest_path = os.path.join(cwd, filename) 
+            source_path = f"/data/{filename}" # Based on your repo root
+            dest_path = os.path.join(cwd, filename) # CWD is /app
 
             print(f"Source file path: {source_path}")
             print(f"Destination file path (CWD): {dest_path}")
@@ -118,7 +114,7 @@ def main() -> int:
             print(f"Does source file exist at {source_path}? {source_exists}")
             
             if not source_exists:
-                print("CRITICAL: Source file not found at /data/{filename}. Please ensure 'channelfile.csv' is in the ROOT of your project.")
+                print(f"CRITICAL: Source file not found at {source_path}. Please ensure '{filename}' is in the ROOT of your project.")
 
             # 4. Set JSON config
             system["channelFile"] = filename
@@ -138,7 +134,9 @@ def main() -> int:
             
         elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
             # This logic remains the same
-            try:.
+            
+            # <<< THIS IS THE LINE THAT WAS FIXED (removed the period) >>>
+            try:
                 parts = [part.strip() for part in raw_channels_hz.split(",") if part.strip()]
                 if not parts:
                     raise ValueError("no values supplied for TR_CHANNELS_HZ")
