@@ -92,48 +92,47 @@ def main() -> int:
     if system is None:
         print("No systems defined; skipping system overrides.")
     else:
-        set_env(
-            cfg,
-            "TR_SQUELCH_DB",
-            lambda raw: system.__setitem__("squelch", int(float(raw))),
-        )
         
-        # <<< FINALIZED SECTION FOR CHANNEL/CHANNELFILE >>>
+        # <<< MODIFIED SECTION FOR SQUELCH >>>
+        # Handle TR_SQUELCH_DB
+        raw_squelch = os.getenv("TR_SQUELCH_DB")
+        if raw_squelch is not None and raw_squelch.strip() != "":
+            # If variable is set, set the value
+            try:
+                system["squelch"] = int(float(raw_squelch))
+                print(f"Setting 'squelch' to: {system['squelch']}")
+            except ValueError as exc:
+                print(f"Skipping TR_SQUELCH_DB: {exc}")
+        else:
+            # If variable is NOT set, remove the key to use internal default
+            system.pop('squelch', None)
+            print("TR_SQUELCH_DB not set. Removing 'squelch' key to use default.")
+        # <<< END OF MODIFIED SECTION >>>
+        
+        # <<< CLEANED SECTION FOR CHANNEL/CHANNELFILE >>>
         
         raw_channel_file = os.getenv("TR_CHANNEL_FILE")
         raw_channels_hz = os.getenv("TR_CHANNELS_HZ")
 
         if raw_channel_file is not None and raw_channel_file.strip() != "":
             
-            print("\n--- Copying Channel File ---")
-            
-            # 1. Get the simple filename (e.g., "channelfile.csv")
             filename = raw_channel_file.strip()
-            
-            # 2. Define Source (from Git repo) and Destination (Trunk Recorder CWD)
             source_path = f"/app/configs/{filename}"
-            
-            # <<< THIS IS THE CORRECTED LINE >>>
             dest_path = f"/app/{filename}"
 
-            print(f"Source file (from repo): {source_path}")
-            print(f"Destination file (for runtime): {dest_path}")
-
-            # 3. Attempt to copy the file
             try:
                 if not os.path.exists(source_path):
                      print(f"CRITICAL: Source file not found at {source_path}. Ensure it's in your 'configs' dir in Git.")
                 else:
                     shutil.copy(source_path, dest_path)
-                    print("File copy SUCCEEDED.")
+                    print(f"Successfully copied channel file to {dest_path}")
             except Exception as e:
                 print(f"CRITICAL: File copy FAILED. Error: {e}")
 
-            # 4. Set JSON to use the simple filename
+            # Set JSON to use the simple filename
             system["channelFile"] = filename
             system.pop('channels', None)
             print(f"Set JSON 'channelFile' to: {filename}")
-            print("--- End Channel File ---")
 
             
         elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
@@ -146,8 +145,8 @@ def main() -> int:
                 system.pop('channelFile', None)
                 print(f"Using TR_CHANNELS_HZ. Removing 'channelFile' key.")
             except ValueError as exc:
-                print(f"Skipping TR_CHANNELS_HZ: {exc}")
-        # <<< END OF FINALIZED SECTION >>>
+                print(f"SkiPping TR_CHANNELS_HZ: {exc}")
+        # <<< END OF CLEANED SECTION >>>
 
         set_env(
             cfg,
