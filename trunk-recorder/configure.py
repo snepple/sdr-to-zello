@@ -55,12 +55,15 @@ def main() -> int:
     if cfg is None:
         return 0
 
+    # Get TR_CHANNEL_FILE value first, as other logic depends on it
+    raw_channel_file = os.getenv("TR_CHANNEL_FILE")
+
     sources = cfg.get("sources") or []
     source = sources[0] if sources else None
     if source is None:
         print("No sources defined; nothing to override.")
     else:
-        # ... (all source settings) ...
+        # ... (all other source settings) ...
         set_env(
             cfg,
             "TR_CENTER_HZ",
@@ -87,31 +90,39 @@ def main() -> int:
             lambda raw: source.__setitem__("signalDetectorThreshold", coerce_int(raw, "signalDetectorThreshold", allow_float=True)),
         )
 
+        # <<< NEW CONDITIONAL SQUELCH LOGIC >>>
+        # The log shows squelch is needed on the SOURCE, not the SYSTEM.
+        # Only apply this override if a channel file is NOT specified.
+        if raw_channel_file is None or raw_channel_file.strip() == "":
+            print("TR_CHANNEL_FILE not set. Applying source squelch overrides if present.")
+            raw_squelch = os.getenv("TR_SQUELCH_DB")
+            if raw_squelch is not None and raw_squelch.strip() != "":
+                # If variable is set, set the value on the SOURCE
+                try:
+                    source["squelch"] = int(float(raw_squelch))
+                    print(f"Setting 'source.squelch' to: {source['squelch']}")
+                except ValueError as exc:
+                    print(f"Skipping TR_SQUELCH_DB: {exc}")
+            else:
+                # If variable is NOT set, remove the key to use internal default
+                source.pop('squelch', None)
+                print("TR_SQUELCH_DB not set. Removing 'source.squelch' key to use default.")
+        else:
+            # A channel file IS specified, so let the file control squelch.
+            # We MUST remove any top-level squelch to avoid overriding the file.
+            print("TR_CHANNEL_FILE is set. Ignoring TR_SQUELCH_DB. Squelch will be controlled by the channel file.")
+            source.pop('squelch', None)
+        # <<< END OF NEW SQUELCH LOGIC >>>
+
+
     systems = cfg.get("systems") or []
     system = systems[0] if systems else None
     if system is None:
         print("No systems defined; skipping system overrides.")
     else:
         
-        # <<< MODIFIED SECTION FOR SQUELCH >>>
-        # Handle TR_SQUELCH_DB
-        raw_squelch = os.getenv("TR_SQUELCH_DB")
-        if raw_squelch is not None and raw_squelch.strip() != "":
-            # If variable is set, set the value
-            try:
-                system["squelch"] = int(float(raw_squelch))
-                print(f"Setting 'squelch' to: {system['squelch']}")
-            except ValueError as exc:
-                print(f"Skipping TR_SQUELCH_DB: {exc}")
-        else:
-            # If variable is NOT set, remove the key to use internal default
-            system.pop('squelch', None)
-            print("TR_SQUELCH_DB not set. Removing 'squelch' key to use default.")
-        # <<< END OF MODIFIED SECTION >>>
-        
         # <<< CLEANED SECTION FOR CHANNEL/CHANNELFILE >>>
         
-        raw_channel_file = os.getenv("TR_CHANNEL_FILE")
         raw_channels_hz = os.getenv("TR_CHANNELS_HZ")
 
         if raw_channel_file is not None and raw_channel_file.strip() != "":
@@ -145,7 +156,7 @@ def main() -> int:
                 system.pop('channelFile', None)
                 print(f"Using TR_CHANNELS_HZ. Removing 'channelFile' key.")
             except ValueError as exc:
-                print(f"SkiPping TR_CHANNELS_HZ: {exc}")
+                print(f"Skipping TR_CHANNELS_HZ: {exc}")
         # <<< END OF CLEANED SECTION >>>
 
         set_env(
