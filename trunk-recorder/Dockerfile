@@ -100,7 +100,14 @@ RUN mkdir -p /data/configs /data/logs
 ENV HOME=/tmp
 
 COPY trunk-recorder/entrypoint.sh /entrypoint.sh
-COPY configs/trunk-recorder.json /app/default-config.json
+
+# --- MODIFIED SECTION ---
+# This copies the ENTIRE configs directory (including channelfile.csv)
+# from your project root into the container at /app/configs/
+# This fixes the "File not found" error.
+COPY configs /app/configs/
+# ------------------------
+
 COPY trunk-recorder/configure.py /app/configure.py
 RUN chmod +x /entrypoint.sh
 
