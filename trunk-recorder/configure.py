@@ -55,9 +55,6 @@ def main() -> int:
     if cfg is None:
         return 0
 
-    # Get TR_CHANNEL_FILE value first, as other logic depends on it
-    raw_channel_file = os.getenv("TR_CHANNEL_FILE")
-
     sources = cfg.get("sources") or []
     source = sources[0] if sources else None
     if source is None:
@@ -90,29 +87,16 @@ def main() -> int:
             lambda raw: source.__setitem__("signalDetectorThreshold", coerce_int(raw, "signalDetectorThreshold", allow_float=True)),
         )
 
-        # <<< NEW CONDITIONAL SQUELCH LOGIC >>>
-        # The log shows squelch is needed on the SOURCE, not the SYSTEM.
-        # Only apply this override if a channel file is NOT specified.
-        if raw_channel_file is None or raw_channel_file.strip() == "":
-            print("TR_CHANNEL_FILE not set. Applying source squelch overrides if present.")
-            raw_squelch = os.getenv("TR_SQUELCH_DB")
-            if raw_squelch is not None and raw_squelch.strip() != "":
-                # If variable is set, set the value on the SOURCE
-                try:
-                    source["squelch"] = int(float(raw_squelch))
-                    print(f"Setting 'source.squelch' to: {source['squelch']}")
-                except ValueError as exc:
-                    print(f"Skipping TR_SQUELCH_DB: {exc}")
-            else:
-                # If variable is NOT set, remove the key to use internal default
-                source.pop('squelch', None)
-                print("TR_SQUELCH_DB not set. Removing 'source.squelch' key to use default.")
-        else:
-            # A channel file IS specified, so let the file control squelch.
-            # We MUST remove any top-level squelch to avoid overriding the file.
-            print("TR_CHANNEL_FILE is set. Ignoring TR_SQUELCH_DB. Squelch will be controlled by the channel file.")
-            source.pop('squelch', None)
-        # <<< END OF NEW SQUELCH LOGIC >>>
+        # <<< CORRECTED SQUELCH LOGIC >>>
+        # The conditional logic was wrong. A base squelch on the 'source'
+        # is always required for conventional systems.
+        # We will now just apply the override if it exists.
+        set_env(
+            cfg,
+            "TR_SQUELCH_DB",
+            lambda raw: source.__setitem__("squelch", int(float(raw))),
+        )
+        # <<< END OF CORRECTED SQUELCH LOGIC >>>
 
 
     systems = cfg.get("systems") or []
@@ -123,27 +107,29 @@ def main() -> int:
         
         # <<< CLEANED SECTION FOR CHANNEL/CHANNELFILE >>>
         
+        raw_channel_file = os.getenv("TR_CHANNEL_FILE")
         raw_channels_hz = os.getenv("TR_CHANNELS_HZ")
 
         if raw_channel_file is not None and raw_channel_file.strip() != "":
             
             filename = raw_channel_file.strip()
             source_path = f"/app/configs/{filename}"
-            dest_path = f"/app/{filename}"
+            dest_path = f"/app/{filename}" # Copy to CWD of /app
 
             try:
                 if not os.path.exists(source_path):
                      print(f"CRITICAL: Source file not found at {source_path}. Ensure it's in your 'configs' dir in Git.")
                 else:
-                    shutil.copy(source_path, dest_path)
-                    print(f"Successfully copied channel file to {dest_path}")
+                    # Only copy if file doesn't already exist or is different
+                    if not os.path.exists(dest_path) or not shutil.cmp(source_path, dest_path):
+                        shutil.copy(source_path, dest_path)
+                        print(f"Successfully copied channel file to {dest_path}")
             except Exception as e:
                 print(f"CRITICAL: File copy FAILED. Error: {e}")
 
             # Set JSON to use the simple filename
             system["channelFile"] = filename
             system.pop('channels', None)
-            print(f"Set JSON 'channelFile' to: {filename}")
 
             
         elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
