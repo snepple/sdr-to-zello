@@ -112,7 +112,9 @@ def main() -> int:
             
             # 2. Define Source (from Git repo) and Destination (Trunk Recorder CWD)
             source_path = f"/app/configs/{filename}"
-            dest_path = f"/data/configs/{filename}"
+            
+            # <<< THIS IS THE CORRECTED LINE >>>
+            dest_path = f"/app/{filename}"
 
             print(f"Source file (from repo): {source_path}")
             print(f"Destination file (for runtime): {dest_path}")
