@@ -69,13 +69,11 @@ def main() -> int:
             "TR_GAIN_DB",
             lambda raw: source.__setitem__("gain", coerce_int(raw, "gain", allow_float=True)),
         )
-        # <<< NEW SOURCE VARIABLE ADDED HERE >>>
         set_env(
             cfg,
             "TR_SIGNAL_DETECTOR_THRESHOLD",
             lambda raw: source.__setitem__("signalDetectorThreshold", coerce_int(raw, "signalDetectorThreshold", allow_float=True)),
         )
-        # <<< END OF NEW SECTION >>>
 
     systems = cfg.get("systems") or []
     system = systems[0] if systems else None
@@ -87,20 +85,34 @@ def main() -> int:
             "TR_SQUELCH_DB",
             lambda raw: system.__setitem__("squelch", int(float(raw))),
         )
-        def set_channels(raw: str) -> None:
-            parts = [part.strip() for part in raw.split(",") if part.strip()]
-            if not parts:
-                raise ValueError("no values supplied")
-            system["channels"] = [int(float(part)) for part in parts]
-        set_env(cfg, "TR_CHANNELS_HZ", set_channels)
-
-        set_env(
-            cfg,
-            "TR_CHANNEL_FILE",
-            lambda raw: system.__setitem__("channelFile", raw.strip()),
-        )
         
-        # <<< NEW SYSTEM VARIABLES ADDED HERE >>>
+        # <<< MODIFIED SECTION FOR CHANNEL/CHANNELFILE >>>
+        # Handle TR_CHANNEL_FILE and TR_CHANNELS_HZ, which are mutually exclusive.
+        # TR_CHANNEL_FILE takes precedence.
+        
+        raw_channel_file = os.getenv("TR_CHANNEL_FILE")
+        raw_channels_hz = os.getenv("TR_CHANNELS_HZ")
+
+        if raw_channel_file is not None and raw_channel_file.strip() != "":
+            # If TR_CHANNEL_FILE is set, use it and nullify 'channels'
+            system["channelFile"] = raw_channel_file.strip()
+            system["channels"] = None
+            print(f"Using TR_CHANNEL_FILE: {system['channelFile']}. Setting 'channels' to null.")
+        
+        elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
+            # Else, if TR_CHANNELS_HZ is set, use it and nullify 'channelFile'
+            try:
+                parts = [part.strip() for part in raw_channels_hz.split(",") if part.strip()]
+                if not parts:
+                    raise ValueError("no values supplied for TR_CHANNELS_HZ")
+                system["channels"] = [int(float(part)) for part in parts]
+                system["channelFile"] = None
+                print(f"Using TR_CHANNELS_HZ. Setting 'channelFile' to null.")
+            except ValueError as exc:
+                print(f"Skipping TR_CHANNELS_HZ: {exc}")
+        # If neither is set, we don't modify the config file's settings.
+        # <<< END OF MODIFIED SECTION >>>
+
         set_env(
             cfg,
             "TR_ANALOG_LEVELS",
@@ -121,7 +133,6 @@ def main() -> int:
             "TR_SYSTEM_MODULATION",
             lambda raw: system.__setitem__("modulation", raw.strip()),
         )
-        # <<< END OF NEW SECTION >>>
 
     plugins = cfg.get("plugins") or []
     if plugins:
