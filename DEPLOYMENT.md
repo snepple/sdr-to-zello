@@ -1,35 +1,9 @@
-# Deployment Guide
 
-## GitHub Secrets Setup
-
-To enable automated deployment to Balena, configure the following secrets in your GitHub repository:
-
-### Required Secrets
-
-1. **Navigate to GitHub Repository Settings**
-   - Go to your repository on GitHub
-   - Click on "Settings" tab
-   - Select "Secrets and variables" → "Actions"
-
-2. **Add Required Secrets**
-   - Click "New repository secret"
-   - Add the following secrets:
-
-   ```
-   Name: BALENA_API_TOKEN
-   Value: 
-   ```
-
-### Balena Fleet Configuration
-
-- **Fleet Name**: `sam27/md3zello`
-- **Target Device**: Raspberry Pi (configured in Balena dashboard)
 
 ## Balena Service Variables
+Configure these environment variables in your Balena dashboard at the Fleet or Device level.
 
-Configure these environment variables in your Balena dashboard at the Fleet or Device level:
-
-### Required Variables
+### Required Zello Variables
 
 ```
 ZELLO_USERNAME=
@@ -49,11 +23,7 @@ VOX_SILENCE_MS=2000
 # Zello VOX can also be set directly in seconds (takes precedence over VOX_SILENCE_MS)
 VOX_SILENCE_SECONDS=
 
-# Trunk Recorder tuning overrides (Hz / dB)
-TR_CENTER_HZ=154120625
-TR_SAMPLE_RATE=2048000
-TR_ERROR_HZ=9375
-TR_GAIN_DB=40
+# System Tuning Overrides (Unchanged)
 TR_CHANNELS_HZ=154130000
 TR_SQUELCH_DB=-50
 TR_PLUGIN_PORT=9123
@@ -62,121 +32,49 @@ TR_PLUGIN_TGID=0
 TR_PLUGIN_SEND_JSON=false
 ```
 
-### SDR Gain
+### Multi-SDR Tuning Overrides (Index 1 to 5)
 
-- The default config sets the RTL-SDR gain to `40` dB (`configs/trunk-recorder.json`).
-- Adjust this value to match your hardware/noise floor; use tools like GQRX or `rtl_test -t` to determine the best setting.
+These variables configure the individual SDR devices. You must set at least `SDR_X_CENTER_HZ` for each SDR you want to use. The first source (`SDR_1_...`) corresponds to the first SDR device found by the system.
 
-## Deployment Methods
+| Variable | Description | Example Value |
+| :--- | :--- | :--- |
+| **SDR\_X\_CENTER\_HZ** | Center frequency for SDR device 'X' (Required) | `154120625` |
+| **SDR\_X\_SAMPLE\_RATE** | Sample rate for SDR device 'X' | `2048000` |
+| **SDR\_X\_ERROR\_HZ** | PPM correction (frequency error) for SDR 'X' | `9375` |
+| **SDR\_X\_GAIN\_DB** | Receiver gain for SDR device 'X' | `40` |
+| **SDR\_X\_SIGNAL\_DETECTOR\_THRESHOLD** | Signal threshold for SDR device 'X' | `250` |
 
-### Automatic Deployment
-- Push to `main` branch triggers automatic deployment
-- Creates live release (devices update automatically)
+-----
 
-### Manual Deployment
-1. Go to "Actions" tab in GitHub repository
-2. Select "Deploy to Balena" workflow
-3. Click "Run workflow"
-4. Choose options:
-   - **Branch**: main
-   - **Create draft release**: Check to create draft (for testing)
+### 💡 Example Configuration
 
-### Direct Balena Push (Alternative)
-```bash
-# Install Balena CLI
-npm install -g balena-cli
+To configure two SDRs, you would set:
 
-# Login to Balena
-balena login
+| Variable | Value |
+| :--- | :--- |
+| `SDR_1_CENTER_HZ` | `154120625` |
+| `SDR_1_SAMPLE_RATE` | `2048000` |
+| `SDR_2_CENTER_HZ` | `854000000` |
+| `SDR_2_SAMPLE_RATE` | `2400000` |
 
-# Push to fleet
-balena push sam27/md3zello
-```
+-----
 
-## Verification Steps
+## 3\. ✅ Verification Steps (Updated)
 
-### 1. Check Balena Dashboard
-- **Release Status**: Verify release is created and downloaded to device
-- **Service Status**: Both `trunk-recorder` and `zellostream` should show "Running"
-- **Health Checks**: Green checkmarks for both services
-- **Device Status**: Online and accessible
-
-### 2. Verify Audio Pipeline
-Follow these steps in order to confirm end-to-end functionality:
-
-#### Step 2.1: Check RTL-SDR Hardware
-```bash
-# Access trunk-recorder container terminal via Balena dashboard
-lsusb | grep RTL2832U
-# Expected: Bus 001 Device 002: ID 0bda:2838 Realtek RTL2832U DVB-T
-```
+The log monitoring step should be updated to show how multiple SDRs would be initialized.
 
 #### Step 2.2: Monitor Trunk Recorder Logs
-Look for these success indicators:
+
+Look for these success indicators for each configured SDR:
+
 ```
 [INFO] Using device #0: RTL2832U
-[INFO] Tuning to 154.120625 MHz
+[INFO] Tuning to 154.120625 MHz (SDR 1)
+[INFO] Using device #1: RTL2832U
+[INFO] Tuning to 854.000000 MHz (SDR 2)
 [INFO] SimpleStream plugin started on 127.0.0.1:9123
 ```
 
-#### Step 2.3: Confirm SimpleStream Plugin
-```bash
-# Inside trunk-recorder container
-ls /usr/local/lib/trunk-recorder/plugins | grep simplestream
-# Expected: libsimplestream.so
-```
+The video below gives an example of how Trunk Recorder is configured for decoding and recording P25 networks, which is useful context for the multi-SDR setup. [WarDragon SDRTrunk Test, Trunk-Recorder Setup, and CyberEther Quick Fix (Airspy R2, P25 Phase II) - YouTube](https://www.youtube.com/watch?v=VnsUIQAg-LI)
 
-#### Step 2.4: Verify UDP Stream
-```bash
-# In zellostream container terminal
-ss -u -l | grep 9123
-# Expected: UNCONN  0  0  127.0.0.1:9123
-```
-
-#### Step 2.5: Check ZelloStream Authentication
-Monitor logs for:
-```
-[INFO] Successfully authenticated with Zello
-[INFO] Connected to channel: Clinton
-[DEBUG] Audio threshold: 700, VOX silence: 2000ms
-```
-
-#### Step 2.6: Test Live Audio Flow
-1. Wait for radio activity on 154.13 MHz (Clinton Fire frequency)
-2. Trunk Recorder should log activity and start streaming
-3. ZelloStream should detect audio above threshold (700)
-4. Audio should appear in Zello channel "Clinton"
-
-### 3. Success Criteria
-- ✅ RTL-SDR hardware detected and accessible
-- ✅ Trunk Recorder tuned to correct frequency
-- ✅ SimpleStream plugin active on UDP port 9123
-- ✅ ZelloStream authenticated to Zello Work account "md3md3"
-- ✅ Connected to Zello channel "Clinton"
-- ✅ Audio streaming from radio to Zello channel
-- ✅ VOX working properly (no false triggers, catches all audio)
-
-## Troubleshooting
-
-### Build Failures
-- Check GitHub Actions logs
-- Verify all secrets are set correctly
-- Ensure Balena API token has fleet access
-
-### Deployment Issues
-- Check Balena dashboard for error messages
-- Verify device is online and accessible
-- Review service variables configuration
-
-### Audio Issues
-- Verify RTL-SDR hardware detection
-- Check UDP port binding
-- Review Zello authentication logs
-- Test VOX threshold settings
-
-## Security Notes
-
-- API tokens and credentials are stored securely in GitHub secrets
-- No sensitive data is committed to the repository
-- Environment variables are injected at runtime via Balena
-- Config files contain only placeholder values
+http://googleusercontent.com/youtube_content/3
