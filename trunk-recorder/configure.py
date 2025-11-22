@@ -74,13 +74,15 @@ def main() -> int:
 
             # 1. Get or create the source object in the list
             if len(sources) < i:
-                # If source doesn't exist, create a new minimal one
-                # Trunk Recorder needs 'center' and 'rate' at minimum.
-                # Use a default index or a generic name for the new source.
+                # ***************************************************************
+                # CORRECTED: Create new source with required driver and device keys
+                # ***************************************************************
                 new_source = {
                     "center": 100000000, # Placeholder/Default
                     "rate": 2048000,     # Placeholder/Default
-                    "index": i - 1       # Use 0-based index for the actual device index
+                    "driver": "osmosdr",   
+                    "device": f"rtl={i - 1}", # rtl=0, rtl=1, etc.
+                    "index": i - 1       
                 }
                 sources.append(new_source)
 
@@ -89,6 +91,14 @@ def main() -> int:
             
             # Ensure the source has a 0-based index set
             source.__setitem__("index", i - 1)
+            
+            # Ensure the source has the driver set for existing sources that are updated
+            if "driver" not in source:
+                 source.__setitem__("driver", "osmosdr")
+                 
+            if "device" not in source:
+                 source.__setitem__("device", f"rtl={i - 1}")
+
 
             # 2. Apply all settings using the new indexed environment variable names
             
@@ -127,12 +137,18 @@ def main() -> int:
                 lambda raw: source.__setitem__("signalDetectorThreshold", coerce_int(raw, "signalDetectorThreshold", allow_float=True)),
             )
         
-        # If the key env var for source 1 (TR_CENTER_HZ) exists, maintain backwards compatibility
+        # --- Backwards Compatibility for SDR 1 (TR_...) ---
         elif i == 1 and os.getenv("TR_CENTER_HZ") is not None and os.getenv("TR_CENTER_HZ").strip() != "":
             print("--- Configuring SDR Source 1 (from legacy TR_CENTER_HZ) ---")
             
-            # Ensure source 1 exists (it would typically be the only one)
-            source = sources[0] if sources else {"center": 100000000, "rate": 2048000, "index": 0}
+            # Ensure source 1 exists
+            source = sources[0] if sources else {
+                "center": 100000000, 
+                "rate": 2048000, 
+                "index": 0,
+                "driver": "osmosdr",   # <--- ADDED DRIVER
+                "device": "rtl=0"      # <--- ADDED DEVICE
+            }
             if not sources:
                  sources.append(source)
                  
@@ -185,19 +201,13 @@ def main() -> int:
             
             print("\n--- Copying Channel File ---")
             
-            # 1. Get the simple filename (e.g., "channelfile.csv")
             filename = raw_channel_file.strip()
-            
-            # 2. Define Source (from Git repo) and Destination (Trunk Recorder CWD)
             source_path = f"/app/configs/{filename}"
-            
-            # <<< THIS IS THE CORRECTED LINE >>>
             dest_path = f"/app/{filename}"
 
             print(f"Source file (from repo): {source_path}")
             print(f"Destination file (for runtime): {dest_path}")
 
-            # 3. Attempt to copy the file
             try:
                 if not os.path.exists(source_path):
                     print(f"CRITICAL: Source file not found at {source_path}. Ensure it's in your 'configs' dir in Git.")
@@ -207,7 +217,6 @@ def main() -> int:
             except Exception as e:
                 print(f"CRITICAL: File copy FAILED. Error: {e}")
 
-            # 4. Set JSON to use the simple filename
             system["channelFile"] = filename
             system.pop('channels', None)
             print(f"Set JSON 'channelFile' to: {filename}")
@@ -215,7 +224,6 @@ def main() -> int:
 
             
         elif raw_channels_hz is not None and raw_channels_hz.strip() != "":
-            # This logic remains the same
             try:
                 parts = [part.strip() for part in raw_channels_hz.split(",") if part.strip()]
                 if not parts:
@@ -225,7 +233,6 @@ def main() -> int:
                 print(f"Using TR_CHANNELS_HZ. Removing 'channelFile' key.")
             except ValueError as exc:
                 print(f"Skipping TR_CHANNELS_HZ: {exc}")
-        # <<< END OF FINALIZED SECTION >>>
 
         set_env(
             cfg,
