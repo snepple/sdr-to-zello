@@ -74,9 +74,7 @@ def main() -> int:
 
             # 1. Get or create the source object in the list
             if len(sources) < i:
-                # ***************************************************************
                 # CORRECTED: Create new source with required driver and device keys
-                # ***************************************************************
                 new_source = {
                     "center": 100000000, # Placeholder/Default
                     "rate": 2048000,     # Placeholder/Default
@@ -146,8 +144,8 @@ def main() -> int:
                 "center": 100000000, 
                 "rate": 2048000, 
                 "index": 0,
-                "driver": "osmosdr",   # <--- ADDED DRIVER
-                "device": "rtl=0"      # <--- ADDED DEVICE
+                "driver": "osmosdr",   
+                "device": "rtl=0"      
             }
             if not sources:
                  sources.append(source)
@@ -219,6 +217,8 @@ def main() -> int:
 
             system["channelFile"] = filename
             system.pop('channels', None)
+            # Remove control_channels if using a channel file
+            system.pop('control_channels', None) 
             print(f"Set JSON 'channelFile' to: {filename}")
             print("--- End Channel File ---")
 
@@ -228,9 +228,15 @@ def main() -> int:
                 parts = [part.strip() for part in raw_channels_hz.split(",") if part.strip()]
                 if not parts:
                     raise ValueError("no values supplied for TR_CHANNELS_HZ")
-                system["channels"] = [int(float(part)) for part in parts]
+                
+                frequency_list = [int(float(part)) for part in parts]
+                
+                # --- FIX: Set both 'channels' and 'control_channels' to prevent JSON type errors ---
+                system["channels"] = frequency_list
+                system["control_channels"] = frequency_list
+                
                 system.pop('channelFile', None)
-                print(f"Using TR_CHANNELS_HZ. Removing 'channelFile' key.")
+                print(f"Using TR_CHANNELS_HZ. Setting 'channels' and 'control_channels'. Removing 'channelFile' key.")
             except ValueError as exc:
                 print(f"Skipping TR_CHANNELS_HZ: {exc}")
 
