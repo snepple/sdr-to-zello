@@ -80,7 +80,7 @@ def main() -> int:
                     "rate": 2048000,     # Placeholder/Default
                     "driver": "osmosdr",   
                     "device": f"rtl={i - 1}", # rtl=0, rtl=1, etc.
-                    "index": i - 1       
+                    "index": i - 1        
                 }
                 sources.append(new_source)
 
@@ -255,11 +255,14 @@ def main() -> int:
             "TR_SYSTEM_TYPE",
             lambda raw: system.__setitem__("type", raw.strip()),
         )
-        set_env(
-            cfg,
-            "TR_SYSTEM_MODULATION",
-            lambda raw: system.__setitem__("modulation", raw.strip()),
-        )
+        
+        # --- MODIFIED: MODULATION LOGIC ---
+        # If env var is present, set it. If missing/empty, remove the key entirely.
+        raw_mod = os.getenv("TR_SYSTEM_MODULATION")
+        if raw_mod is not None and raw_mod.strip() != "":
+             system["modulation"] = raw_mod.strip()
+        else:
+             system.pop("modulation", None)
 
     # ... (rest of plugin logic) ...
     plugins = cfg.get("plugins") or []
