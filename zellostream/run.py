@@ -32,7 +32,24 @@ set_if("ZELLO_USERNAME",     ["username"])
 set_if("ZELLO_PASSWORD",     ["password"])
 set_if("ZELLO_WORK_ACCOUNT", ["zello_work_account_name"])  # leave empty if consumer Zello
 set_if("ZELLO_CHANNEL",      ["zello_channel"])
-set_if("UDP_PORT",           ["UDP_PORT"], int)
+
+# --- NEW LOGIC: Switch between UDP (SDR) and Audio Device (Scanner) ---
+audio_device = os.getenv("ZELLO_AUDIO_DEVICE")
+
+if audio_device and audio_device.strip() != "":
+    print(f"Configuring for Sound Card Input: {audio_device}")
+    # Set the device key in the JSON
+    cfg["audio_device"] = audio_device.strip()
+    
+    # REMOVE the UDP port to ensure the script knows we are NOT using UDP
+    if "UDP_PORT" in cfg:
+        del cfg["UDP_PORT"]
+else:
+    # Fallback to standard UDP behavior
+    print("Configuring for UDP Input")
+    set_if("UDP_PORT", ["UDP_PORT"], int)
+# ----------------------------------------------------------------------
+
 set_if("INPUT_RATE",         ["audio_input_sample_rate"], int)
 set_if("ZELLO_RATE",         ["zello_sample_rate"], int)
 set_if("AUDIO_THRESHOLD",    ["audio_threshold"], int)
