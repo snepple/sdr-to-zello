@@ -1,6 +1,3 @@
-Here is the updated GitHub documentation. I have restructured it to clearly separate the **SDR Mode** (using Trunk Recorder) from the **Scanner Mode** (using a Sound Card), incorporated the new variables we created, and translated the official documentation parameters into the specific Balena environment variables used in this project.
-
------
 
 # Configuration & Environment Variables
 
