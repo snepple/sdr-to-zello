@@ -1,80 +1,146 @@
-
-
-## Balena Service Variables
-Configure these environment variables in your Balena dashboard at the Fleet or Device level.
-
-### Required Zello Variables
-
-```
-ZELLO_USERNAME=
-ZELLO_PASSWORD=
-ZELLO_CHANNEL=
-ZELLO_WORK_ACCOUNT=
-```
-
-### Optional Variables (defaults provided)
-
-```
-UDP_PORT=9123
-INPUT_RATE=16000
-ZELLO_RATE=16000
-AUDIO_THRESHOLD=700
-VOX_SILENCE_MS=2000
-# Zello VOX can also be set directly in seconds (takes precedence over VOX_SILENCE_MS)
-VOX_SILENCE_SECONDS=
-
-# System Tuning Overrides (Unchanged)
-TR_CHANNELS_HZ=154130000
-TR_SQUELCH_DB=-50
-TR_PLUGIN_PORT=9123
-TR_PLUGIN_ADDRESS=127.0.0.1
-TR_PLUGIN_TGID=0
-TR_PLUGIN_SEND_JSON=false
-```
-
-### Multi-SDR Tuning Overrides (Index 1 to 5)
-
-These variables configure the individual SDR devices. You must set at least `SDR_X_CENTER_HZ` for each SDR you want to use. The first source (`SDR_1_...`) corresponds to the first SDR device found by the system.
-
-| Variable | Description | Example Value |
-| :--- | :--- | :--- |
-| **SDR\_X\_CENTER\_HZ** | Center frequency for SDR device 'X' (Required) | `154120625` |
-| **SDR\_X\_SAMPLE\_RATE** | Sample rate for SDR device 'X' | `2048000` |
-| **SDR\_X\_ERROR\_HZ** | PPM correction (frequency error) for SDR 'X' | `9375` |
-| **SDR\_X\_GAIN\_DB** | Receiver gain for SDR device 'X' | `40` |
-| **SDR\_X\_SIGNAL\_DETECTOR\_THRESHOLD** | Signal threshold for SDR device 'X' | `250` |
+Here is the updated GitHub documentation. I have restructured it to clearly separate the **SDR Mode** (using Trunk Recorder) from the **Scanner Mode** (using a Sound Card), incorporated the new variables we created, and translated the official documentation parameters into the specific Balena environment variables used in this project.
 
 -----
 
-### 💡 Example Configuration
+# Configuration & Environment Variables
 
-To configure two SDRs, you would set:
+This project is configured entirely via **Environment Variables** in the Balena Dashboard. The startup scripts automatically generate the necessary JSON configuration files for `zellostream` and `trunk-recorder` based on these values.
 
-| Variable | Value |
+## 1\. 🔐 Zello Credentials (Required)
+
+These are required regardless of whether you are using an SDR or a Sound Card.
+
+| Variable | Description |
 | :--- | :--- |
-| `SDR_1_CENTER_HZ` | `154120625` |
-| `SDR_1_SAMPLE_RATE` | `2048000` |
-| `SDR_2_CENTER_HZ` | `854000000` |
-| `SDR_2_SAMPLE_RATE` | `2400000` |
+| `ZELLO_USERNAME` | Your Zello username. |
+| `ZELLO_PASSWORD` | Your Zello password. |
+| `ZELLO_CHANNEL` | The name of the Zello channel to stream to. |
+| `ZELLO_WORK_ACCOUNT` | (Optional) Leave empty for consumer Zello. Set this if using Zello Work. |
 
 -----
 
-## 3\. ✅ Verification Steps (Updated)
+## 2\. 🎛️ Input Mode Selection
 
-The log monitoring step should be updated to show how multiple SDRs would be initialized.
+You can configure this device to act as a **Trunk Recorder** (using USB SDR dongles) OR as a simple **RoIP Gateway** (using a physical scanner connected to a USB Sound Card).
 
-#### Step 2.2: Monitor Trunk Recorder Logs
+### Option A: SDR Mode (Default)
 
-Look for these success indicators for each configured SDR:
+Use this mode if you have RTL-SDR dongles plugged in.
+
+  * **`TR_ENABLE_STREAMING`**: Set to `true` (default).
+  * **`ZELLO_AUDIO_DEVICE`**: Do **not** set this variable (delete it if present).
+
+### Option B: Sound Card / Scanner Mode
+
+Use this mode if you are connecting a physical radio/scanner to a USB sound card or IMic.
+
+  * **`TR_ENABLE_STREAMING`**: Set to `false`. (This disables the Trunk Recorder CPU usage).
+  * **`ZELLO_AUDIO_DEVICE`**: Set to your ALSA device ID.
+      * *Examples:* `default`, `hw:1,0`, `plughw:1,0`.
+      * *Tip:* You can find this by opening the Terminal in Balena and running `arecord -l`.
+
+-----
+
+## 3\. 📻 Trunk Recorder Configuration (SDR Mode Only)
+
+These variables control the `trunk-recorder` backend. They are translated from the [Official Trunk Recorder Config Docs](https://trunkrecorder.com/docs/CONFIGURE).
+
+### System-Wide Settings
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `TR_SYSTEM_TYPE` | `conventional` | `conventional`, `p25`, or `smartnet`. Use `conventional` for standard analog. |
+| `TR_SYSTEM_MODULATION` | *Empty* | **Important for Analog:** Set to `fsk4` for P25, or leave empty/remove for Analog FM. |
+| `TR_SQUELCH_DB` | `-50` | Signal strength required to record. **-60** is sensitive, **-40** is less sensitive. |
+| `TR_CHANNEL_FILE` | *None* | Filename of a CSV in `/app/configs/` (e.g., `deltachannels.csv`). **Recommended for multi-channel setups.** |
+| `TR_CHANNELS_HZ` | *None* | Comma-separated list of frequencies (e.g., `155115000,157485000`). Used only if no Channel File is provided. |
+
+### Multi-SDR Tuning (Index 1 to 5)
+
+Configure up to 5 SDRs. You must set at least `SDR_X_CENTER_HZ` to enable a device.
+
+| Variable | Description | Recommended Value |
+| :--- | :--- | :--- |
+| **`SDR_X_CENTER_HZ`** | Center frequency for Device X. | *Target Freq* |
+| **`SDR_X_SAMPLE_RATE`** | Bandwidth/Rate. | `2400000` (2.4 MS/s) or `2048000` |
+| **`SDR_X_GAIN_DB`** | Receiver Gain. | `30` - `40` (Avoid Max/49.6 on VHF to prevent static) |
+| **`SDR_X_ERROR_HZ`** | PPM Error correction. | `0` (unless stick is uncalibrated) |
+| **`SDR_X_SIGNAL_DETECTOR_THRESHOLD`** | Digital signal detection sensitivity. | `10` (P25 only). Ignored if CSV sets Signal Detect to `false`. |
+
+*\> Replace `X` with `1`, `2`, `3`, etc. (e.g., `SDR_1_CENTER_HZ`).*
+
+-----
+
+## 4\. 🔊 Audio & VOX Settings (Zellostream)
+
+These variables control how audio is processed and sent to Zello. They are translated from the [Zellostream Documentation](https://github.com/aaknitt/zellostream).
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `VOX_SILENCE_MS` | `2000` | **Hang Time:** How many milliseconds of silence to wait before ending the transmission. Increase this if Zello cuts off mid-sentence. |
+| `AUDIO_THRESHOLD` | `700` | **VOX Sensitivity:** Audio level (amplitude) required to trigger transmission. Lower = more sensitive. |
+| `INPUT_RATE` | `16000` | Sample rate of the incoming audio. **Keep at 16000** for Trunk Recorder. |
+| `UDP_PORT` | `9123` | Port used to receive audio from Trunk Recorder (SDR Mode Only). |
+
+-----
+
+## 5\. 📄 Channel Configuration (CSV Method)
+
+For Analog systems or complex P25 setups, it is highly recommended to use a **Channel CSV** file instead of the simple `TR_CHANNELS_HZ` variable.
+
+1.  Create a file (e.g., `mychannels.csv`) and add it to the `/app/configs/` folder in your repository.
+2.  Set `TR_CHANNEL_FILE` = `mychannels.csv` in Balena.
+
+**Format for Analog FM:**
+
+```csv
+TG Number,Frequency,Tone,Alpha Tag,Description,Tag,Category,Enable,Signal Detector,Squelch
+1,155115000,0,Dispatch 1,Main Dispatch,Dispatch,EMS,true,false,-60
+2,157485000,0,Ops 2,Operations,Ops,EMS,true,false,-60
+```
+
+*\> **Note:** For Analog, ensure `Signal Detector` is `false` and `Squelch` is set appropriately (e.g., -60).*
+
+-----
+
+## 6\. ✅ Verification & Troubleshooting
+
+### Monitoring Logs
+
+To verify the system is working, look for these indicators in the Balena logs:
+
+**1. Zello Connection:**
 
 ```
-[INFO] Using device #0: RTL2832U
-[INFO] Tuning to 154.120625 MHz (SDR 1)
-[INFO] Using device #1: RTL2832U
-[INFO] Tuning to 854.000000 MHz (SDR 2)
-[INFO] SimpleStream plugin started on 127.0.0.1:9123
+zellostream I create_zello_connection: seq: 1
+zellostream D main: recv: {"command":"on_channel_status","status":"online"...}
 ```
 
-The video below gives an example of how Trunk Recorder is configured for decoding and recording P25 networks, which is useful context for the multi-SDR setup. [WarDragon SDRTrunk Test, Trunk-Recorder Setup, and CyberEther Quick Fix (Airspy R2, P25 Phase II) - YouTube](https://www.youtube.com/watch?v=VnsUIQAg-LI)
+**2. SDR Initialization (Trunk Recorder):**
 
-http://googleusercontent.com/youtube_content/3
+```
+[info] Source Device: rtl=0
+[info] Tuning to 155.115000 MHz
+[info] [sys_1] Freq: 155.115000 MHz Squelch: -60 dB
+```
+
+**3. Active Recording (Analog):**
+If you see `State: Idle`, the system is listening but hears silence.
+When a transmission starts, you should see:
+
+```
+[sys_1] 0C TG: 1 Freq: 155.115000 MHz Starting Analog Recorder Num [8]
+zellostream D udp_rx: got 314 bytes from ...
+```
+
+### Common Issues
+
+  * **Zello restarting constantly:**
+      * *Cause:* No audio is being received from the SDR.
+      * *Fix:* Check if Trunk Recorder is running and if `UDP_PORT` matches.
+  * **Constant Static / "Flood" of logs:**
+      * *Cause:* Squelch is too low (e.g., -100) or Gain is too high (e.g., 49.6).
+      * *Fix:* Set `TR_SQUELCH_DB` (or the CSV value) to `-60` or higher. Lower `SDR_X_GAIN_DB` to `35`.
+  * **Recorder Stuck in "Idle":**
+      * *Cause:* Signal Detector is enabled on a noisy Analog channel.
+      * *Fix:* In your CSV, set `Signal Detector` to `false`.
