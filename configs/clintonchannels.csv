@@ -1,4 +1,2 @@
 TG Number,Frequency,Tone,Alpha Tag,Description,Tag,Category,Enable,Signal Detector,Squelch
-1,154130000,173.8,Clinton FD,Clinton Fire,Fire/EMS,Clinton,,,-42
-
-
+1,154995000,127.3,Winthrop Fire/EMS,Winthrop Fire& EMS Dispatch,Fire/EMS,Winthrop,true,false,-43
