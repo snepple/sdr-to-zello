@@ -39,7 +39,11 @@ RUN apt-get update && \
 
 # Clone source code (changes when trunk-recorder updates)
 WORKDIR /src
-RUN git clone --depth 1 https://github.com/TrunkRecorder/trunk-recorder.git .
+
+# --- MODIFIED: CLONING YOUR FORK ---
+# This pulls the code from your repo where you applied the CTCSS fix.
+RUN git clone --depth 1 https://github.com/snepple/trunk-recorder.git .
+# -----------------------------------
 
 # Enable SimpleStream plugin (commented out upstream by default)
 RUN sed -i 's/#add_subdirectory(plugins\/simplestream)/add_subdirectory(plugins\/simplestream)/' CMakeLists.txt
@@ -101,12 +105,9 @@ ENV HOME=/tmp
 
 COPY trunk-recorder/entrypoint.sh /entrypoint.sh
 
-# --- MODIFIED SECTION ---
 # This copies the ENTIRE configs directory (including channelfile.csv)
 # from your project root into the container at /app/configs/
-# This fixes the "File not found" error.
 COPY configs /app/configs/
-# ------------------------
 
 COPY trunk-recorder/configure.py /app/configure.py
 RUN chmod +x /entrypoint.sh
