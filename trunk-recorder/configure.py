@@ -49,43 +49,31 @@ def main() -> int:
     if source is None:
         print("No sources defined; nothing to override.")
     else:
-        set_env(
-            cfg,
-            "TR_CENTER_HZ",
-            lambda raw: source.__setitem__("center", coerce_int(raw, "center", allow_float=True)),
-        )
-        set_env(
-            cfg,
-            "TR_SAMPLE_RATE",
-            lambda raw: source.__setitem__("rate", coerce_int(raw, "rate", allow_float=True)),
-        )
-        set_env(
-            cfg,
-            "TR_ERROR_HZ",
-            lambda raw: source.__setitem__("error", coerce_int(raw, "error", allow_float=True)),
-        )
-        set_env(
-            cfg,
-            "TR_GAIN_DB",
-            lambda raw: source.__setitem__("gain", coerce_int(raw, "gain", allow_float=True)),
-        )
-
+        set_env(cfg, "TR_CENTER_HZ", lambda raw: source.__setitem__("center", coerce_int(raw, "center", allow_float=True)))
+        set_env(cfg, "TR_SAMPLE_RATE", lambda raw: source.__setitem__("rate", coerce_int(raw, "rate", allow_float=True)))
+        set_env(cfg, "TR_ERROR_HZ", lambda raw: source.__setitem__("error", coerce_int(raw, "error", allow_float=True)))
+        set_env(cfg, "TR_GAIN_DB", lambda raw: source.__setitem__("gain", coerce_int(raw, "gain", allow_float=True)))
+        
     systems = cfg.get("systems") or []
     system = systems[0] if systems else None
     if system is None:
         print("No systems defined; skipping system overrides.")
     else:
-        set_env(
-            cfg,
-            "TR_SQUELCH_DB",
-            lambda raw: system.__setitem__("squelch", int(float(raw))),
-        )
+        set_env(cfg, "TR_SQUELCH_DB", lambda raw: system.__setitem__("squelch", int(float(raw))))
+        
+        # --- THE FIX IS HERE ---
         def set_channels(raw: str) -> None:
             parts = [part.strip() for part in raw.split(",") if part.strip()]
             if not parts:
                 raise ValueError("no values supplied")
             system["channels"] = [int(float(part)) for part in parts]
+            
+            # CRITICAL: Remove the conflicting file reference
+            system.pop("channelFile", None) 
+            print("Set channels from variable and removed channelFile.")
+
         set_env(cfg, "TR_CHANNELS_HZ", set_channels)
+        # -----------------------
 
     plugins = cfg.get("plugins") or []
     if plugins:
@@ -93,26 +81,10 @@ def main() -> int:
         streams = plugin.get("streams") or []
         stream = streams[0] if streams else None
         if stream:
-            set_env(
-                cfg,
-                "TR_PLUGIN_PORT",
-                lambda raw: stream.__setitem__("port", coerce_int(raw, "port")),
-            )
-            set_env(
-                cfg,
-                "TR_PLUGIN_ADDRESS",
-                lambda raw: stream.__setitem__("address", raw.strip()),
-            )
-            set_env(
-                cfg,
-                "TR_PLUGIN_TGID",
-                lambda raw: stream.__setitem__("TGID", int(raw, 0)),
-            )
-            set_env(
-                cfg,
-                "TR_PLUGIN_SEND_JSON",
-                lambda raw: stream.__setitem__("sendJSON", raw.strip().lower() in {"1", "true", "yes"}),
-            )
+            set_env(cfg, "TR_PLUGIN_PORT", lambda raw: stream.__setitem__("port", coerce_int(raw, "port")))
+            set_env(cfg, "TR_PLUGIN_ADDRESS", lambda raw: stream.__setitem__("address", raw.strip()))
+            set_env(cfg, "TR_PLUGIN_TGID", lambda raw: stream.__setitem__("TGID", int(raw, 0)))
+            set_env(cfg, "TR_PLUGIN_SEND_JSON", lambda raw: stream.__setitem__("sendJSON", raw.strip().lower() in {"1", "true", "yes"}))
     else:
         print("No plugins configured; skipping plugin overrides.")
 
