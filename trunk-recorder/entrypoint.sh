@@ -8,7 +8,7 @@ modprobe -r dvb_usb_rtl28xxu rtl2832 rtl2830 2>/dev/null || true
 mkdir -p /data/configs
 if [ ! -f /data/configs/trunk-recorder.json ]; then
     echo "Copying default trunk-recorder config to /data/configs/"
-    cp /app/configs/trunk-recorder.json /data/configs/trunk-recorder.json
+    cp /app/default-config.json /data/configs/trunk-recorder.json
 fi
 
 # Apply environment overrides (best-effort)

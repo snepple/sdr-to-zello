@@ -39,11 +39,7 @@ RUN apt-get update && \
 
 # Clone source code (changes when trunk-recorder updates)
 WORKDIR /src
-
-# --- MODIFIED: CLONING YOUR FORK ---
-# This pulls the code from your repo where you applied the CTCSS fix.
-RUN git clone --depth 1 https://github.com/snepple/trunk-recorder.git .
-# -----------------------------------
+RUN git clone --depth 1 https://github.com/TrunkRecorder/trunk-recorder.git .
 
 # Enable SimpleStream plugin (commented out upstream by default)
 RUN sed -i 's/#add_subdirectory(plugins\/simplestream)/add_subdirectory(plugins\/simplestream)/' CMakeLists.txt
@@ -104,11 +100,7 @@ RUN mkdir -p /data/configs /data/logs
 ENV HOME=/tmp
 
 COPY trunk-recorder/entrypoint.sh /entrypoint.sh
-
-# This copies the ENTIRE configs directory (including channelfile.csv)
-# from your project root into the container at /app/configs/
-COPY configs /app/configs/
-
+COPY configs/trunk-recorder.json /app/default-config.json
 COPY trunk-recorder/configure.py /app/configure.py
 RUN chmod +x /entrypoint.sh
 

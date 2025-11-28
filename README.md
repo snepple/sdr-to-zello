@@ -1,143 +1,173 @@
+# SDR to Zello Bridge
 
-# Configuration & Environment Variables
+This project provides a two-service Docker stack that captures SDR audio via Trunk Recorder and streams it to Zello channels using ZelloStream.
 
-This project is configured entirely via **Environment Variables** in the Balena Dashboard. The startup scripts automatically generate the necessary JSON configuration files for `zellostream` and `trunk-recorder` based on these values.
+## Architecture
 
-## 1\. 🔐 Zello Credentials (Required)
+- **trunk-recorder**: Captures SDR audio and publishes raw PCM via UDP port 9123 using the SimpleStream plugin
+- **zellostream**: Ingests UDP audio and streams it to a Zello channel with voice activation (VOX)
 
-These are required regardless of whether you are using an SDR or a Sound Card.
+## Quick Start
 
-| Variable | Description |
-| :--- | :--- |
-| `ZELLO_USERNAME` | Your Zello username. |
-| `ZELLO_PASSWORD` | Your Zello password. |
-| `ZELLO_CHANNEL` | The name of the Zello channel to stream to. |
-| `ZELLO_WORK_ACCOUNT` | (Optional) Leave empty for consumer Zello. Set this if using Zello Work. |
+### Prerequisites
 
------
+- Balena Cloud account and device
+- RTL-SDR dongle
+- Zello account with channel access
+- GitHub repository with Actions enabled
 
-## 2\. 🎛️ Input Mode Selection
+### Deployment
 
-You can configure this device to act as a **Trunk Recorder** (using USB SDR dongles) OR as a simple **RoIP Gateway** (using a physical scanner connected to a USB Sound Card).
+#### Option 1: Automated GitHub Deployment (Recommended)
+1. Fork this repository
+2. Configure GitHub secrets (see [DEPLOYMENT.md](DEPLOYMENT.md))
+3. Configure Balena Service Variables in your dashboard
+4. Push to `main` branch - deployment happens automatically!
 
-### Option A: SDR Mode (Default)
+#### Option 2: Manual Balena Push
+1. Clone this repository
+2. Install Balena CLI: `npm install -g balena-cli`
+3. Login: `balena login`
+4. Push: `balena push sam27/md3zello`
 
-Use this mode if you have RTL-SDR dongles plugged in.
+📖 **See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions**
 
-  * **`TR_ENABLE_STREAMING`**: Set to `true` (default).
-  * **`ZELLO_AUDIO_DEVICE`**: Do **not** set this variable (delete it if present).
+## Configuration
 
-### Option B: Sound Card / Scanner Mode
+### Balena Service Variables
 
-Use this mode if you are connecting a physical radio/scanner to a USB sound card or IMic.
+Set these environment variables in Balena dashboard (Device or Fleet level):
 
-  * **`TR_ENABLE_STREAMING`**: Set to `false`. (This disables the Trunk Recorder CPU usage).
-  * **`ZELLO_AUDIO_DEVICE`**: Set to your ALSA device ID.
-      * *Examples:* `default`, `hw:1,0`, `plughw:1,0`.
-      * *Tip:* You can find this by opening the Terminal in Balena and running `arecord -l`.
+**Required:**
+- `ZELLO_USERNAME`: Your Zello username
+- `ZELLO_PASSWORD`: Your Zello password
+- `ZELLO_CHANNEL`: Target channel name (e.g., "Clinton")
+- `ZELLO_WORK_ACCOUNT`: Zello Work account name (or empty for consumer Zello)
 
------
+**Optional (have defaults):**
+- `UDP_PORT=9123`: UDP port for audio pipeline
+- `INPUT_RATE=8000`: Audio input sample rate
+- `ZELLO_RATE=16000`: Zello output sample rate
+- `AUDIO_THRESHOLD=700`: VOX activation threshold
+- `VOX_SILENCE_MS=2000`: Silence time before stopping transmission
 
-## 3\. 📻 Trunk Recorder Configuration (SDR Mode Only)
+### Config Files
 
-These variables control the `trunk-recorder` backend. They are translated from the [Official Trunk Recorder Config Docs](https://trunkrecorder.com/docs/CONFIGURE).
+The `configs/` directory contains:
 
-### System-Wide Settings
+- `configs/trunk-recorder.json`: Trunk Recorder configuration (ready to use)
+- `configs/zello.json`: ZelloStream template (credentials injected via env vars)
 
-| Variable | Default | Description |
-| :--- | :--- | :--- |
-| `TR_SYSTEM_TYPE` | `conventional` | `conventional`, `p25`, or `smartnet`. Use `conventional` for standard analog. |
-| `TR_SYSTEM_MODULATION` | *Empty* | **Important for Analog:** Set to `fsk4` for P25, or leave empty/remove for Analog FM. |
-| `TR_SQUELCH_DB` | `-50` | Signal strength required to record. **-60** is sensitive, **-40** is less sensitive. |
-| `TR_CHANNEL_FILE` | *None* | Filename of a CSV in `/app/configs/` (e.g., `deltachannels.csv`). **Recommended for multi-channel setups.** |
-| `TR_CHANNELS_HZ` | *None* | Comma-separated list of frequencies (e.g., `155115000,157485000`). Used only if no Channel File is provided. |
+No manual config file editing needed - everything is handled via Balena Service Variables!
 
-### Multi-SDR Tuning (Index 1 to 5)
+## Troubleshooting
 
-Configure up to 5 SDRs. You must set at least `SDR_X_CENTER_HZ` to enable a device.
+### SDR Access Issues
+- Ensure `privileged: true` is set in docker-compose.yml
+- Check that `/dev/bus/usb` is properly mounted
+- DVB drivers are automatically unloaded by the entrypoint script
 
-| Variable | Description | Recommended Value |
-| :--- | :--- | :--- |
-| **`SDR_X_CENTER_HZ`** | Center frequency for Device X. | *Target Freq* |
-| **`SDR_X_SAMPLE_RATE`** | Bandwidth/Rate. | `2400000` (2.4 MS/s) or `2048000` |
-| **`SDR_X_GAIN_DB`** | Receiver Gain. | `30` - `40` (Avoid Max/49.6 on VHF to prevent static) |
-| **`SDR_X_ERROR_HZ`** | PPM Error correction. | `0` (unless stick is uncalibrated) |
-| **`SDR_X_SIGNAL_DETECTOR_THRESHOLD`** | Digital signal detection sensitivity. | `10` (P25 only). Ignored if CSV sets Signal Detect to `false`. |
+### VOX Tuning
+- **No activation**: Lower `AUDIO_THRESHOLD` (try 500)
+- **False triggering**: Raise `AUDIO_THRESHOLD` (try 1000-1400) or increase `VOX_SILENCE_MS`
 
-*\> Replace `X` with `1`, `2`, `3`, etc. (e.g., `SDR_1_CENTER_HZ`).*
+### Audio Pipeline
+- Verify UDP traffic: `tcpdump -n -i any udp port 9123`
+- Check container logs for connection and authentication status
 
------
+## Verification Steps
 
-## 4\. 🔊 Audio & VOX Settings (Zellostream)
+### 1. Check Device Health in Balena Dashboard
+- Both services should show "Running" status
+- Health checks should pass (green checkmarks)
+- No restart loops or error states
 
-These variables control how audio is processed and sent to Zello. They are translated from the [Zellostream Documentation](https://github.com/aaknitt/zellostream).
+### 2. Verify Hardware Detection
+```bash
+# In trunk-recorder container terminal (via Balena dashboard)
+lsusb | grep RTL2832U
+# Should show: Bus 001 Device 002: ID 0bda:2838 Realtek RTL2832U DVB-T
 
-| Variable | Default | Description |
-| :--- | :--- | :--- |
-| `VOX_SILENCE_MS` | `2000` | **Hang Time:** How many milliseconds of silence to wait before ending the transmission. Increase this if Zello cuts off mid-sentence. |
-| `AUDIO_THRESHOLD` | `700` | **VOX Sensitivity:** Audio level (amplitude) required to trigger transmission. Lower = more sensitive. |
-| `INPUT_RATE` | `16000` | Sample rate of the incoming audio. **Keep at 16000** for Trunk Recorder. |
-| `UDP_PORT` | `9123` | Port used to receive audio from Trunk Recorder (SDR Mode Only). |
-
------
-
-## 5\. 📄 Channel Configuration (CSV Method)
-
-For Analog systems or complex P25 setups, it is highly recommended to use a **Channel CSV** file instead of the simple `TR_CHANNELS_HZ` variable.
-
-1.  Create a file (e.g., `mychannels.csv`) and add it to the `/app/configs/` folder in your repository.
-2.  Set `TR_CHANNEL_FILE` = `mychannels.csv` in Balena.
-
-**Format for Analog FM:**
-
-```csv
-TG Number,Frequency,Tone,Alpha Tag,Description,Tag,Category,Enable,Signal Detector,Squelch
-1,155115000,0,Dispatch 1,Main Dispatch,Dispatch,EMS,true,false,-60
-2,157485000,0,Ops 2,Operations,Ops,EMS,true,false,-60
+# Check for kernel driver conflicts
+dmesg | grep dvb
+# Should be clean or show drivers unloaded
 ```
 
-*\> **Note:** For Analog, ensure `Signal Detector` is `false` and `Squelch` is set appropriately (e.g., -60).*
-
------
-
-## 6\. ✅ Verification & Troubleshooting
-
-### Monitoring Logs
-
-To verify the system is working, look for these indicators in the Balena logs:
-
-**1. Zello Connection:**
-
+### 3. Monitor Trunk Recorder Logs
+Look for these key indicators:
 ```
-zellostream I create_zello_connection: seq: 1
-zellostream D main: recv: {"command":"on_channel_status","status":"online"...}
+[INFO] Using device #0: RTL2832U
+[INFO] Tuning to 154.12 MHz
+[INFO] SimpleStream plugin started on 127.0.0.1:9123
 ```
 
-**2. SDR Initialization (Trunk Recorder):**
+### 4. Verify UDP Audio Stream
+```bash
+# In zellostream container terminal
+ss -u -l | grep 9123
+# Should show: UNCONN  0  0  127.0.0.1:9123
 
-```
-[info] Source Device: rtl=0
-[info] Tuning to 155.115000 MHz
-[info] [sys_1] Freq: 155.115000 MHz Squelch: -60 dB
-```
-
-**3. Active Recording (Analog):**
-If you see `State: Idle`, the system is listening but hears silence.
-When a transmission starts, you should see:
-
-```
-[sys_1] 0C TG: 1 Freq: 155.115000 MHz Starting Analog Recorder Num [8]
-zellostream D udp_rx: got 314 bytes from ...
+# Monitor UDP traffic (if tcpdump available)
+tcpdump -n -i any udp port 9123
+# Should show packets when radio activity occurs
 ```
 
-### Common Issues
+### 5. Check ZelloStream Authentication
+Monitor zellostream logs for:
+```
+[INFO] Successfully authenticated with Zello
+[INFO] Connected to channel: Clinton
+[DEBUG] Audio threshold: 700, VOX silence: 2000ms
+```
 
-  * **Zello restarting constantly:**
-      * *Cause:* No audio is being received from the SDR.
-      * *Fix:* Check if Trunk Recorder is running and if `UDP_PORT` matches.
-  * **Constant Static / "Flood" of logs:**
-      * *Cause:* Squelch is too low (e.g., -100) or Gain is too high (e.g., 49.6).
-      * *Fix:* Set `TR_SQUELCH_DB` (or the CSV value) to `-60` or higher. Lower `SDR_X_GAIN_DB` to `35`.
-  * **Recorder Stuck in "Idle":**
-      * *Cause:* Signal Detector is enabled on a noisy Analog channel.
-      * *Fix:* In your CSV, set `Signal Detector` to `false`.
+### 6. Test End-to-End Audio Flow
+1. **Radio Activity**: Wait for or trigger radio traffic on 154.13 MHz
+2. **Trunk Recorder**: Should log "Recording started" messages
+3. **UDP Stream**: Should see packets in tcpdump or netstat activity
+4. **ZelloStream**: Should log "Audio above threshold, transmitting"
+5. **Zello Channel**: Audio should appear in "Clinton" channel
+
+### Troubleshooting Checklist
+
+- [ ] RTL-SDR hardware detected by trunk-recorder
+- [ ] No "device busy" errors (DVB drivers properly unloaded)
+- [ ] Trunk Recorder tuned to correct frequency (154.120625 MHz center, 154.13 MHz channel)
+- [ ] SimpleStream plugin active on UDP port 9123
+- [ ] ZelloStream bound to UDP port 9123
+- [ ] ZelloStream successfully authenticated to Zello
+- [ ] Connected to correct Zello channel
+- [ ] VOX threshold appropriate (no false triggers or missed audio)
+- [ ] Audio quality good in Zello channel
+
+## Development
+
+### Building Images Locally
+
+```bash
+# Build trunk-recorder
+docker build -t trunk-recorder ./trunk-recorder
+
+# Build zellostream
+docker build -t zellostream ./zellostream
+```
+
+### Testing
+
+```bash
+# Start services
+docker-compose up
+
+# Check UDP listener
+docker-compose exec zellostream ss -u -l | grep 9123
+
+# Monitor UDP traffic
+sudo tcpdump -n -i any udp port 9123
+```
+
+## License
+
+This project integrates:
+- [Trunk Recorder](https://github.com/TrunkRecorder/trunk-recorder)
+- [ZelloStream](https://github.com/aaknitt/zellostream)
+
+Refer to their respective licenses for usage terms.
