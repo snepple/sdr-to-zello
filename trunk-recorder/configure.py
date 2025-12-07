@@ -35,7 +35,7 @@ def set_env(cfg: Any, env: str, setter: Callable[[str], None]) -> None:
 def coerce_int(raw: str, field: str, allow_float: bool = False) -> int:
     value = float(raw) if allow_float else int(raw)
     if allow_float:
-        return int(value)
+        return float(value) # FIXED: Return float if float is allowed
     return value
 
 
@@ -61,19 +61,40 @@ def main() -> int:
     else:
         set_env(cfg, "TR_SQUELCH_DB", lambda raw: system.__setitem__("squelch", int(float(raw))))
         
-        # --- THE FIX IS HERE ---
         def set_channels(raw: str) -> None:
             parts = [part.strip() for part in raw.split(",") if part.strip()]
             if not parts:
                 raise ValueError("no values supplied")
             system["channels"] = [int(float(part)) for part in parts]
-            
-            # CRITICAL: Remove the conflicting file reference
+            # Remove conflicting file setting
             system.pop("channelFile", None) 
-            print("Set channels from variable and removed channelFile.")
-
         set_env(cfg, "TR_CHANNELS_HZ", set_channels)
+
+        # --- BUG FIXES BELOW ---
+        # Fixed capitalization from "AnalogLevels" to "analogLevels"
+        set_env(
+            cfg,
+            "TR_ANALOG_LEVELS",
+            lambda raw: system.__setitem__("analogLevels", coerce_int(raw, "analogLevels", allow_float=True)),
+        )
+        # Fixed capitalization from "DigitalLevels" to "digitalLevels"
+        set_env(
+            cfg,
+            "TR_DIGITAL_LEVELS",
+            lambda raw: system.__setitem__("digitalLevels", coerce_int(raw, "digitalLevels", allow_float=True)),
+        )
         # -----------------------
+
+        set_env(
+            cfg,
+            "TR_SYSTEM_TYPE",
+            lambda raw: system.__setitem__("type", raw.strip()),
+        )
+        set_env(
+            cfg,
+            "TR_SYSTEM_MODULATION",
+            lambda raw: system.__setitem__("modulation", raw.strip()),
+        )
 
     plugins = cfg.get("plugins") or []
     if plugins:
