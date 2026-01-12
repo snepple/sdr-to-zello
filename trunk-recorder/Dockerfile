@@ -1,62 +1,7 @@
-FROM ubuntu:24.04 AS builder
-
-# Install dependencies for building trunk-recorder (Balena-compatible)
-RUN apt-get update && \
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install --no-install-recommends -y \
-        build-essential \
-        ca-certificates \
-        cmake \
-        curl \
-        git \
-        pkg-config \
-        wget \
-        python3-six \
-        gnuradio-dev \
-        gr-osmosdr \
-        libosmosdr-dev \
-        libairspy-dev \
-        libairspyhf-dev \
-        libfreesrp-dev \
-        libhackrf-dev \
-        librtlsdr-dev \
-        libuhd-dev \
-        libusb-dev \
-        libusb-1.0-0-dev \
-        libsoapysdr-dev \
-        libsox-dev \
-        libboost-all-dev \
-        libcurl4-openssl-dev \
-        libgmp-dev \
-        liborc-0.4-dev \
-        libpthread-stubs0-dev \
-        libsndfile1-dev \
-        libssl-dev \
-        libzmq3-dev \
-        sox \
-        ffmpeg \
- && rm -rf /var/lib/apt/lists/*
-
-# Clone source code (changes when trunk-recorder updates)
-WORKDIR /src
-RUN git clone --depth 1 https://github.com/TrunkRecorder/trunk-recorder.git .
-
-# Enable SimpleStream plugin (commented out upstream by default)
-RUN sed -i 's/#add_subdirectory(plugins\/simplestream)/add_subdirectory(plugins\/simplestream)/' CMakeLists.txt
-
-# Build trunk-recorder with cache mount for build artifacts
-WORKDIR /src/build
-RUN cmake .. \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_PLUGINS=ON \
-        -DBUILD_SIMPLESTREAM=ON && \
-    make -j$(nproc) && \
-    make DESTDIR=/newroot install
-
 # Stage 2 - Runtime image
 FROM ubuntu:24.04
 
-# Install runtime dependencies (simplified to avoid cache mount issues)
+# Install runtime dependencies
 RUN apt-get update && \
     apt-get -y upgrade && \
     export DEBIAN_FRONTEND=noninteractive && \
@@ -92,16 +37,18 @@ RUN mkdir -p /etc/gnuradio/conf.d/ && \
     echo 'log_level = info' >> /etc/gnuradio/conf.d/gnuradio-runtime.conf && \
     ldconfig
 
-# runtime setup
+# Runtime setup
 WORKDIR /app
 RUN mkdir -p /data/configs /data/logs
 
 # GNURadio requires a place to store some files, can only be set via $HOME env var.
 ENV HOME=/tmp
 
-COPY trunk-recorder/entrypoint.sh /entrypoint.sh
-COPY configs/trunk-recorder.json /app/default-config.json
-COPY trunk-recorder/configure.py /app/configure.py
-RUN chmod +x /entrypoint.sh
+# --- ADDED SECTION FOR DYNAMIC SERIAL NUMBER ---
+# Copy the injection script and configuration template
+COPY trunk-recorder/start_trunk.sh /app/start_trunk.sh
+COPY configs/trunk-recorder.json /data/configs/trunk-recorder.json
+RUN chmod +x /app/start_trunk.sh
 
-ENTRYPOINT ["/entrypoint.sh"]
+# We override the previous ENTRYPOINT to use our new script
+ENTRYPOINT ["/app/start_trunk.sh"]
