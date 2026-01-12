@@ -35,5 +35,11 @@ RUN if [ -f requirements.txt ]; then \
 
 COPY zellostream/run.py /app/run.py
 COPY configs/zello.json /app/default-config.json
+
+# --- ADDED SECTION FOR STAGGERED STARTUP ---
+COPY zellostream/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Keep dumb-init for signal handling, but point CMD to our script
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["python3", "/app/run.py"]
+CMD ["/app/start.sh"]
