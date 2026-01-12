@@ -9,7 +9,7 @@
       "gain": 40,
       "digitalRecorders": 8,
       "driver": "osmosdr",
-      "device": "rtl=0"
+      "device": "rtl={SDR_SERIAL}"
     }
   ],
   "systems": [
