@@ -1,4 +1,4 @@
-import json, math, os, shutil, subprocess, sys, logging, traceback, requests
+import json, math, os, shutil, subprocess, sys, logging, traceback, requests, time
 from collections import deque
 
 # Initialize logging
@@ -105,8 +105,18 @@ try:
 
     if exit_code != 0:
         recent_logs = "\n".join(log_buffer)
-        err_msg = f"❌ *Process Crashed (Exit {exit_code})*\n\n*Recent Logs:*\n```{recent_logs}```"
+        
+        # Check if the crash was specifically a 429 Rate Limit error
+        is_429 = "429" in recent_logs
+        cooldown_msg = " (30s Cooldown Active)" if is_429 else ""
+        
+        err_msg = f"❌ *Process Crashed (Exit {exit_code}){cooldown_msg}*\n\n*Recent Logs:*\n```{recent_logs}```"
         send_telegram(err_msg)
+        
+        # If we see a 429, we MUST wait before the container restarts
+        if is_429:
+            logging.warning("429 Too Many Requests detected. Waiting 30 seconds before exit...")
+            time.sleep(30)
     
     sys.exit(exit_code)
 
