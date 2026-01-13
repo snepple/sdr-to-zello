@@ -12,18 +12,16 @@ services:
       - /dev/bus/usb:/dev/bus/usb
     volumes:
       - data:/data               # Holds logs and runtime data
-    # The monitor.py script is now the primary process
     command: ["python3", "/app/monitor.py"]
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
+      interval: 45s              # Increased from 20s
+      timeout: 10s               # Increased from 5s
+      retries: 3
     labels:
       io.balena.features.kernel-modules: '1'
       io.balena.features.firmware: '1'
       io.balena.features.dbus: '1'
-      # CRITICAL: Enables $BALENA_SUPERVISOR_ADDRESS and API key for reboots
       io.balena.features.supervisor-api: '1'
 
   zellostream:
@@ -45,13 +43,14 @@ services:
       - UDP_PORT=9123
       - INPUT_RATE=16000
       - ZELLO_RATE=16000
-      - AUDIO_THRESHOLD=700
-      - VOX_SILENCE_MS=2000
+      - AUDIO_THRESHOLD=1000      # Increased to filter background noise/hiss
+      - VOX_SILENCE_MS=3000       # Increased to 3s to keep channel keyed during brief pauses
     healthcheck:
+      # Relaxed to prevent the "Thundering Herd" effect from killing the service
       test: ["CMD-SHELL", "ss -u -l | grep -q ':9123' || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
+      interval: 60s               # Increased from 20s
+      timeout: 15s                # Increased from 5s
+      retries: 3
     labels:
       io.balena.features.dbus: '1'
 
