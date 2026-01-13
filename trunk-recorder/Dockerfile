@@ -1,59 +1,10 @@
 # Stage 1 - Build Stage
 FROM ubuntu:24.04 AS builder
 
-# Install build dependencies
-RUN apt-get update && \
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install --no-install-recommends -y \
-        build-essential \
-        ca-certificates \
-        cmake \
-        curl \
-        git \
-        pkg-config \
-        wget \
-        python3-six \
-        gnuradio-dev \
-        gr-osmosdr \
-        libosmosdr-dev \
-        libairspy-dev \
-        libairspyhf-dev \
-        libfreesrp-dev \
-        libhackrf-dev \
-        librtlsdr-dev \
-        libuhd-dev \
-        libusb-dev \
-        libusb-1.0-0-dev \
-        libsoapysdr-dev \
-        libsox-dev \
-        libboost-all-dev \
-        libcurl4-openssl-dev \
-        libgmp-dev \
-        liborc-0.4-dev \
-        libpthread-stubs0-dev \
-        libsndfile1-dev \
-        libssl-dev \
-        libzmq3-dev \
-        sox \
-        ffmpeg \
- && rm -rf /var/lib/apt/lists/*
+# ... [Keep your existing Stage 1 / Builder code here] ...
+# (No changes needed to the builder section)
 
-# Clone and build Trunk Recorder
-WORKDIR /src
-RUN git clone --depth 1 https://github.com/TrunkRecorder/trunk-recorder.git .
-
-# Enable SimpleStream plugin
-RUN sed -i 's/#add_subdirectory(plugins\/simplestream)/add_subdirectory(plugins\/simplestream)/' CMakeLists.txt
-
-WORKDIR /src/build
-RUN cmake .. \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_PLUGINS=ON \
-        -DBUILD_SIMPLESTREAM=ON && \
-    make -j$(nproc) && \
-    make DESTDIR=/newroot install
-
-# Stage 2 - Runtime image (This is the part you provided)
+# Stage 2 - Runtime image
 FROM ubuntu:24.04
 
 # Install runtime dependencies
@@ -82,10 +33,13 @@ RUN apt-get update && \
         soapysdr0.8-module-all \
         sox \
         wget \
+        python3-requests \
+        python3-six \
+        dos2unix \
  && rm -rf /var/lib/apt/lists/* \
  && rm -rf /usr/share/{doc,man,info} /usr/local/share/{doc,man,info}
 
-# Now this line will work because "builder" is defined at the top
+# Copy the built binary from Stage 1
 COPY --from=builder /newroot /
 
 # Fix the error message level for SmartNet
@@ -100,12 +54,15 @@ RUN mkdir -p /data/configs /data/logs
 # GNURadio requires a place to store some files, can only be set via $HOME env var.
 ENV HOME=/tmp
 
-# --- UPDATED SECTION FOR MERGED ENTRYPOINT ---
+# --- UPDATED SECTION FOR MONITORING & ENTRYPOINT ---
 COPY trunk-recorder/entrypoint.sh /entrypoint.sh
-COPY configs/trunk-recorder.json /app/default-config.json
+COPY trunk-recorder/monitor.py /app/monitor.py
 COPY trunk-recorder/configure.py /app/configure.py
+COPY configs/trunk-recorder.json /app/default-config.json
 
-RUN chmod +x /entrypoint.sh
+# CRITICAL: Clean up line endings from Windows and make scripts executable
+RUN dos2unix /entrypoint.sh /app/monitor.py /app/configure.py && \
+    chmod +x /entrypoint.sh /app/monitor.py /app/configure.py
 
-# Set the merged entrypoint as the starting instruction
+# Set the entrypoint as the starting instruction
 ENTRYPOINT ["/entrypoint.sh"]
