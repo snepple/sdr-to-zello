@@ -6,31 +6,45 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 cfg_path = "/data/configs/zello.json"
 link_path = "/app/config.json"
-LAST_ALERT_FILE = "/data/last_429_alert.txt" # Permanent storage for the timestamp
+
+# Permanent storage for timestamps to survive restarts
+LAST_429_ALERT_FILE = "/data/last_429_alert.txt"
+LAST_START_ALERT_FILE = "/data/last_start_alert.txt"
 
 # --- TELEGRAM CONFIGURATION ---
 TELEGRAM_TOKEN = "8581390939:AAGwYki7ENlLYNy6BT7DM8rn52XeXOqVvtw"
 CHAT_ID = "8322536156"
 DEVICE_NAME = os.getenv("BALENA_DEVICE_NAME_AT_INIT", "Unknown-Pi")
 
-def send_telegram(message, silent=False, force=False):
-    """Sends a notification to Telegram. If force=False, it checks the 1-hour limit."""
-    
-    # If this is a 429 error and NOT a forced message, check the timer
-    if "429" in message and not force:
-        now = time.time()
-        if os.path.exists(LAST_ALERT_FILE):
-            with open(LAST_ALERT_FILE, "r") as f:
+def should_send_alert(file_path, interval_seconds):
+    """Checks if enough time has passed to send another alert of this type."""
+    now = time.time()
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r") as f:
                 last_time = float(f.read().strip())
-            
-            # 3600 seconds = 1 hour
-            if now - last_time < 3600:
-                logging.info("429 alert suppressed (last alert was less than 1 hour ago).")
-                return 
+            if now - last_time < interval_seconds:
+                return False
+        except:
+            pass
+    # Update the file with the new timestamp
+    with open(file_path, "w") as f:
+        f.write(str(now))
+    return True
 
-        # Update the file with the current time
-        with open(LAST_ALERT_FILE, "w") as f:
-            f.write(str(now))
+def send_telegram(message, silent=False, alert_type=None):
+    """
+    Sends a notification to Telegram with rate limiting.
+    alert_type can be '429' (1hr limit) or 'START' (24hr limit).
+    """
+    if alert_type == "429":
+        if not should_send_alert(LAST_429_ALERT_FILE, 3600):
+            logging.info("Suppressing 429 Telegram alert (rate limit).")
+            return
+    elif alert_type == "START":
+        if not should_send_alert(LAST_START_ALERT_FILE, 86400):
+            logging.info("Suppressing Startup Telegram alert (rate limit).")
+            return
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
@@ -44,12 +58,48 @@ def send_telegram(message, silent=False, force=False):
     except Exception as e:
         logging.error(f"Failed to send Telegram alert: {e}")
 
-# ... [Keep your existing Configuration Logic (set_if, etc.) here] ...
+# --- CONFIGURATION LOGIC ---
+os.makedirs("/data/configs", exist_ok=True)
+if not os.path.exists(cfg_path):
+    logging.info("Copying default zello config to /data/configs/")
+    shutil.copy("/app/default-config.json", cfg_path)
+
+with open(cfg_path, "r") as f:
+    cfg = json.load(f)
+
+def set_if(env, keys, cast=None):
+    v = os.getenv(env)
+    if not v: return
+    if cast:
+        try: v = cast(v)
+        except: return
+    d = cfg
+    for k in keys[:-1]: d = d.setdefault(k, {})
+    d[keys[-1]] = v
+
+set_if("ZELLO_USERNAME",     ["username"])
+set_if("ZELLO_PASSWORD",     ["password"])
+set_if("ZELLO_WORK_ACCOUNT", ["zello_work_account_name"])
+set_if("ZELLO_CHANNEL",      ["zello_channel"])
+set_if("UDP_PORT",           ["UDP_PORT"], int)
+set_if("INPUT_RATE",         ["audio_input_sample_rate"], int)
+set_if("ZELLO_RATE",         ["zello_sample_rate"], int)
+set_if("AUDIO_THRESHOLD",    ["audio_threshold"], int)
+
+with open(cfg_path, "w") as f:
+    json.dump(cfg, f, indent=2)
+
+try:
+    if os.path.islink(link_path) or os.path.exists(link_path):
+        os.remove(link_path)
+    os.symlink(cfg_path, link_path)
+except OSError:
+    shutil.copy(cfg_path, link_path)
 
 # --- EXECUTION & MONITORING ---
 logging.info(f"Starting ZelloStream for user: {cfg.get('username')}")
-# We use force=True here so you always get the "Service Starting" message if you want it
-send_telegram(f"🔄 Service starting for `{cfg.get('username')}`", silent=True, force=True)
+# Only alert on startup once every 24 hours
+send_telegram(f"🔄 Service starting for `{cfg.get('username')}`", silent=True, alert_type="START")
 
 log_buffer = deque(maxlen=10)
 
@@ -76,8 +126,8 @@ try:
         
         err_msg = f"❌ *Process Crashed (Exit {exit_code})*\n\n*Logs:*\n```{recent_logs}```"
         
-        # This will now respect the 1-hour rule for 429s
-        send_telegram(err_msg)
+        # Send crash alert (429s are limited to once per hour)
+        send_telegram(err_msg, alert_type="429" if is_429 else None)
         
         if is_429:
             logging.warning("429 detected. 30s cooldown...")
@@ -86,5 +136,5 @@ try:
     sys.exit(exit_code)
 
 except Exception as e:
-    send_telegram(f"🔥 *Launcher Error*\n```{str(e)}```", force=True)
+    send_telegram(f"🔥 *Launcher Error*\n```{str(e)}```")
     sys.exit(1)
