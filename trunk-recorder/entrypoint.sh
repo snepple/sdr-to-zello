@@ -1,35 +1,27 @@
 #!/usr/bin/env bash
 set -e
 
-# 1. Free the RTL-SDR from kernel DVB drivers
+# 1. Unload kernel drivers to ensure the SDR is "Free"
 modprobe -r dvb_usb_rtl28xxu rtl2832 rtl2830 2>/dev/null || true
 
-# 2. Setup Directories
-mkdir -p /data/configs
-
-# 3. Handle Serial Variable
-# Default to 00000001 if the Balena variable SDR_SERIAL is not set
+# 2. Setup Variables
 SERIAL_TO_USE="${SDR_SERIAL:-00000001}"
-echo "Targeting SDR Serial: $SERIAL_TO_USE"
+echo "Configuring for SDR Serial: $SERIAL_TO_USE"
 
-# 4. Prepare the Base Config
-# We use the /app/ version as a clean template to avoid persistent errors in /data
-cp /app/default-config.json /tmp/config_pre_injection.json
+# 3. Apply overrides first (configure.py)
+# We do this to a temp file so we can edit it afterward
+python3 /app/configure.py || echo "Warning: configure.py failed"
 
-# 5. Apply Environment Overrides (configure.py)
-# We do this BEFORE injection so configure.py doesn't break our serial string
-python3 /app/configure.py || echo "Warning: failed to apply trunk-recorder overrides"
+# 4. FORCE SERIAL INJECTION
+# We search for the exact string "rtl={SDR_SERIAL}" and replace it
+# We also ensure no other 'device' or 'rtl' index lines were added by configure.py
+sed -i "s/rtl={SDR_SERIAL}/rtl=$SERIAL_TO_USE/g" /app/default-config.json
 
-# 6. FORCE SERIAL INJECTION
-# This replaces the placeholder {SDR_SERIAL} in the final config file
-echo "Injecting serial $SERIAL_TO_USE into active config..."
-sed "s/{SDR_SERIAL}/$SERIAL_TO_USE/g" /tmp/config_pre_injection.json > /tmp/config_active.json
+# 5. Verification: Print the source section to the Balena Log
+echo "--- Active Source Config ---"
+grep -A 5 "sources" /app/default-config.json
+echo "----------------------------"
 
-# 7. Verification Log
-# This will print the actual line to the Balena log so you can verify it worked
-echo "Verification - Device Line:"
-grep "device" /tmp/config_active.json
-
-# 8. Start Trunk Recorder
+# 6. Start Trunk Recorder
 echo "Starting Trunk Recorder..."
-exec trunk-recorder -c /tmp/config_active.json
+exec trunk-recorder -c /app/default-config.json
