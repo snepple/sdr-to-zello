@@ -6,6 +6,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 cfg_path = "/data/configs/zello.json"
 link_path = "/app/config.json"
+BOOT_FLAG = "/dev/shm/zello_stagger_done" # RAM flag managed by start.sh
 
 # Permanent storage for timestamps to survive restarts
 LAST_429_ALERT_FILE = "/data/last_429_alert.txt"
@@ -93,7 +94,6 @@ except OSError:
 
 # --- EXECUTION & MONITORING ---
 logging.info(f"Starting ZelloStream for user: {cfg.get('username')}")
-# Startup notification removed per request
 
 log_buffer = deque(maxlen=10)
 
@@ -121,7 +121,12 @@ try:
         is_429 = "429" in recent_logs
         
         if is_429:
-            err_msg = f"🚫 *Zello Rate Limit (429)*\nYour IP is temporarily blocked by Zello. Waiting 30s before retry.\n\n*Recent Logs:*\n```{recent_logs}```"
+            # SAFETY VALVE: Delete the flag so next boot is forced to stagger
+            if os.path.exists(BOOT_FLAG):
+                logging.warning(f"Deleting {BOOT_FLAG} to force stagger on next retry.")
+                os.remove(BOOT_FLAG)
+
+            err_msg = f"🚫 *Zello Rate Limit (429)*\nYour IP is temporarily blocked by Zello. Waiting 30s cooldown. Next restart will be staggered.\n\n*Recent Logs:*\n```{recent_logs}```"
             send_telegram(err_msg, alert_type="429")
             logging.warning("429 detected. 30s cooldown...")
             time.sleep(30)
