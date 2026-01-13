@@ -1,5 +1,6 @@
 FROM python:3.11-slim
 
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
@@ -23,23 +24,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Clone the repository
 RUN git clone --depth 1 https://github.com/aaknitt/zellostream.git /app
 
-# If repo has a requirements.txt, install it (ignore if absent)
+# Set environment for LLVM (required for some audio processing libs)
 ENV LLVM_CONFIG=/usr/bin/llvm-config
 
-RUN if [ -f requirements.txt ]; then \
-      pip install --no-cache-dir --upgrade pip; \
+# Install Python requirements and add 'requests' for Telegram notifications
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir requests && \
+    if [ -f requirements.txt ]; then \
       pip install --no-cache-dir -r requirements.txt; \
     fi
 
+# Copy custom scripts and configurations
 COPY zellostream/run.py /app/run.py
 COPY configs/zello.json /app/default-config.json
-
-# --- ADDED SECTION FOR STAGGERED STARTUP ---
 COPY zellostream/start.sh /app/start.sh
-RUN chmod +x /app/start.sh
 
-# Keep dumb-init for signal handling, but point CMD to our script
+# Ensure scripts are executable
+RUN chmod +x /app/run.py /app/start.sh
+
+# Keep dumb-init for signal handling
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+# Execute the staggered startup script
 CMD ["/app/start.sh"]
