@@ -17,30 +17,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
  && rm -rf /var/lib/apt/lists/*
 
-# Set Working Directory
 WORKDIR /app
 
-# 1. CLONE FIRST: Pull the base code from GitHub
-RUN git clone --depth 1 https://github.com/aaknitt/zellostream.git .
+# 1. Clone the repository into a SUBFOLDER first to avoid overwriting /app
+RUN git clone --depth 1 https://github.com/aaknitt/zellostream.git /tmp/repo \
+    && cp -r /tmp/repo/* /app/ \
+    && rm -rf /tmp/repo
 
-# 2. INSTALL LIBS: Install requirements + Telegram 'requests'
+# 2. Install Python requirements
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir requests && \
     if [ -f requirements.txt ]; then \
       pip install --no-cache-dir -r requirements.txt; \
     fi
 
-# 3. OVERWRITE: Copy your custom local files into the container
-# This ensures these files exist at /app/start.sh and /app/run.py
+# 3. FORCE COPY: We use the '*' to ensure we grab the files regardless of context
+# We copy them to /app/ explicitly
 COPY zellostream/run.py /app/run.py
 COPY zellostream/start.sh /app/start.sh
 COPY configs/zello.json /app/default-config.json
 
-# 4. PERMISSIONS: Explicitly make them executable
-RUN chmod +x /app/start.sh /app/run.py
+# 4. Final Sanity Check & Permissions
+RUN ls -l /app/start.sh && chmod +x /app/start.sh /app/run.py
 
-# Set signal handling
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-# Run the startup script
-CMD ["/app/start.sh"]
+# Use the absolute path
+CMD ["/bin/bash", "/app/start.sh"]
