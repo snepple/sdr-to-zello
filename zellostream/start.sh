@@ -1,22 +1,27 @@
 #!/bin/bash
 
-# 1. Get the system uptime in seconds (the first number in /proc/uptime)
-read -r UPTIME_SECONDS _ < /proc/uptime
+# 1. Configuration
+# We use /dev/shm because it is RAM-based; it clears on Reboot but stays on Restart.
+BOOT_FLAG="/dev/shm/zello_stagger_done"
+DELAY=${START_DELAY:-0}
 
-# 2. Convert to an integer for comparison
-UPTIME_INT=${UPTIME_SECONDS%.*}
-
-# 3. Only apply START_DELAY if the system booted recently (within last 120 seconds)
-if [ "$UPTIME_INT" -lt 120 ]; then
-    if [ ! -z "$START_DELAY" ]; then
-        echo "Fresh boot detected (Uptime: ${UPTIME_INT}s). Staggering startup: sleeping $START_DELAY seconds..."
-        sleep "$START_DELAY"
+# 2. Logic: Should we stagger?
+if [ ! -f "$BOOT_FLAG" ]; then
+    # The flag doesn't exist. This is the first time the container is running 
+    # since the Pi powered on (or the first time after an image update).
+    if [ "$DELAY" -gt 0 ]; then
+        echo "❄️ Cold Start / First Run Detected. Staggering startup: sleeping $DELAY seconds..."
+        sleep "$DELAY"
     fi
+    # Create the flag so future service restarts happen instantly
+    touch "$BOOT_FLAG"
 else
-    echo "Service restart detected (System Uptime: ${UPTIME_INT}s). Skipping staggering delay."
+    # The flag exists in RAM. The Pi has been up, and this is just a service recovery.
+    echo "🔥 Hot Restart Detected. Skipping delay for fast recovery."
 fi
 
 echo "Starting zellostream..."
 
-# Execute the application
+# 3. Execute the application
+# Use 'exec' so Python becomes PID 1 and receives shutdown signals properly
 exec python3 /app/run.py
