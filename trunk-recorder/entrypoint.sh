@@ -12,8 +12,6 @@ RATE_TO_USE="${SDR_RATE:-2400000}"
 python3 /app/configure.py || echo "Warning: configure.py failed"
 
 # 4. SMART INJECTION
-# If the serial is the default '00000001', some drivers prefer index 0.
-# We will check if the serial is default, and if so, try a broader match.
 if [ "$SERIAL_TO_USE" == "00000001" ]; then
     DEVICE_STR="rtl=0"
     echo "Using fallback index: $DEVICE_STR"
@@ -34,5 +32,6 @@ echo "----------------------------------------"
 # 6. Anti-Flap Delay
 sleep 10
 
-# 7. Start
-exec trunk-recorder -c /app/default-config.json
+# 7. Start via Python Watchdog/Monitor
+echo "Starting Trunk Recorder via Watchdog..."
+exec python3 /app/monitor.py
