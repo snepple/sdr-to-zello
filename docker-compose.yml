@@ -6,13 +6,14 @@ services:
       context: .
       dockerfile: trunk-recorder/Dockerfile
     restart: unless-stopped
-    privileged: true             # access SDR
-    network_mode: host           # UDP on loopback
+    privileged: true             # Access SDR and system controls
+    network_mode: host           # Communicate on loopback
     devices:
       - /dev/bus/usb:/dev/bus/usb
     volumes:
-      - data:/data               # holds logs and runtime data
-    command: ["-c", "/data/configs/trunk-recorder.json"]
+      - data:/data               # Holds logs and runtime data
+    # The monitor.py script is now the primary process
+    command: ["python3", "/app/monitor.py"]
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
       interval: 20s
@@ -22,6 +23,8 @@ services:
       io.balena.features.kernel-modules: '1'
       io.balena.features.firmware: '1'
       io.balena.features.dbus: '1'
+      # CRITICAL: Enables $BALENA_SUPERVISOR_ADDRESS and API key for reboots
+      io.balena.features.supervisor-api: '1'
 
   zellostream:
     build:
@@ -33,18 +36,17 @@ services:
         condition: service_started
     network_mode: host
     volumes:
-      - data:/data               # holds logs and runtime data
+      - data:/data
     environment:
-      # Set real values as Balena Service Variables (Device or Fleet level)
       - ZELLO_USERNAME
       - ZELLO_PASSWORD
       - ZELLO_CHANNEL
-      - ZELLO_WORK_ACCOUNT      # empty if consumer Zello
+      - ZELLO_WORK_ACCOUNT
       - UDP_PORT=9123
       - INPUT_RATE=16000
       - ZELLO_RATE=16000
-      - AUDIO_THRESHOLD=700     # from client config
-      - VOX_SILENCE_MS=2000     # = 2 seconds
+      - AUDIO_THRESHOLD=700
+      - VOX_SILENCE_MS=2000
     healthcheck:
       test: ["CMD-SHELL", "ss -u -l | grep -q ':9123' || exit 1"]
       interval: 20s
