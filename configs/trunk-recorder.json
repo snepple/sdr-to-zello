@@ -4,12 +4,12 @@
   "sources": [
     {
       "center": 154120625,
-      "rate": 2400000,
+      "rate": {SDR_RATE},
       "error": 0,
       "gain": 40,
       "digitalRecorders": 8,
-      "driver": "osmosdr",
-      "device": "rtl={SDR_SERIAL}"
+      "driver": "rtl",
+      "device": "{SDR_SERIAL}"
     }
   ],
   "systems": [
