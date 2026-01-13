@@ -4,8 +4,8 @@
   "sources": [
     {
       "center": 154120625,
-      "rate": 2048000,
-      "error": 9375,
+      "rate": 2400000,
+      "error": 0,
       "gain": 40,
       "digitalRecorders": 8,
       "driver": "osmosdr",
