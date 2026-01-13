@@ -8,8 +8,8 @@
       "error": 0,
       "gain": 40,
       "digitalRecorders": 8,
-      "driver": "rtl",
-      "device": "{SDR_SERIAL}"
+      "driver": "osmosdr",
+      "device": "rtl={SDR_SERIAL}"
     }
   ],
   "systems": [
