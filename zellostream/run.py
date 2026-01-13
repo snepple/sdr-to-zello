@@ -9,7 +9,6 @@ link_path = "/app/config.json"
 
 # Permanent storage for timestamps to survive restarts
 LAST_429_ALERT_FILE = "/data/last_429_alert.txt"
-LAST_START_ALERT_FILE = "/data/last_start_alert.txt"
 
 # --- TELEGRAM CONFIGURATION ---
 TELEGRAM_TOKEN = "8581390939:AAGwYki7ENlLYNy6BT7DM8rn52XeXOqVvtw"
@@ -35,15 +34,11 @@ def should_send_alert(file_path, interval_seconds):
 def send_telegram(message, silent=False, alert_type=None):
     """
     Sends a notification to Telegram with rate limiting.
-    alert_type can be '429' (1hr limit) or 'START' (24hr limit).
+    alert_type can be '429' (1hr limit).
     """
     if alert_type == "429":
         if not should_send_alert(LAST_429_ALERT_FILE, 3600):
             logging.info("Suppressing 429 Telegram alert (rate limit).")
-            return
-    elif alert_type == "START":
-        if not should_send_alert(LAST_START_ALERT_FILE, 86400):
-            logging.info("Suppressing Startup Telegram alert (rate limit).")
             return
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -98,8 +93,7 @@ except OSError:
 
 # --- EXECUTION & MONITORING ---
 logging.info(f"Starting ZelloStream for user: {cfg.get('username')}")
-# Only alert on startup once every 24 hours
-send_telegram(f"🔄 Service starting for `{cfg.get('username')}`", silent=True, alert_type="START")
+# Startup notification removed per request
 
 log_buffer = deque(maxlen=10)
 
@@ -122,16 +116,18 @@ try:
 
     if exit_code != 0:
         recent_logs = "\n".join(log_buffer)
+        
+        # Robust check for 429 error anywhere in the buffer
         is_429 = "429" in recent_logs
         
-        err_msg = f"❌ *Process Crashed (Exit {exit_code})*\n\n*Logs:*\n```{recent_logs}```"
-        
-        # Send crash alert (429s are limited to once per hour)
-        send_telegram(err_msg, alert_type="429" if is_429 else None)
-        
         if is_429:
+            err_msg = f"🚫 *Zello Rate Limit (429)*\nYour IP is temporarily blocked by Zello. Waiting 30s before retry.\n\n*Recent Logs:*\n```{recent_logs}```"
+            send_telegram(err_msg, alert_type="429")
             logging.warning("429 detected. 30s cooldown...")
             time.sleep(30)
+        else:
+            err_msg = f"❌ *Process Crashed (Exit {exit_code})*\n\n*Logs:*\n```{recent_logs}```"
+            send_telegram(err_msg)
     
     sys.exit(exit_code)
 
