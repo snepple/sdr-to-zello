@@ -12,6 +12,8 @@ DEVICE_NAME = os.getenv("BALENA_DEVICE_NAME_AT_INIT", "Unknown-Pi")
 # Persistent paths
 ATTEMPT_FILE = "/data/sdr_attempt_level"
 FAILURE_COUNT_FILE = "/data/consecutive_failures"
+# --- THE FIX: Point to the generated config in /data ---
+CONFIG_PATH = "/data/config.json"
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -35,8 +37,9 @@ try:
 except:
     consecutive_failures = 0
 
-process = subprocess.Popen(["trunk-recorder", "-c", "/app/default-config.json"],
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+# --- THE FIX: Updated command to use CONFIG_PATH (/data/config.json) ---
+process = subprocess.Popen(["trunk-recorder", "-c", CONFIG_PATH],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
 for line in iter(process.stdout.readline, ''):
     line = line.strip()
