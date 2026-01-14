@@ -23,12 +23,17 @@ def update_config():
         system_type = raw_system_type
 
     # 3. Replace placeholders with Dashboard Variables
+    # Maps your confirmed Balena variables to the JSON template placeholders
     replacements = {
         "{TR_CENTER_HZ}": os.getenv('TR_CENTER_HZ', '155115000'),
         "{TR_CHANNELS_HZ}": os.getenv('TR_CHANNELS_HZ', '155115000'),
         "{SYSTEM_TYPE}": system_type,
         "{MODULATION}": os.getenv('MODULATION', 'fm'),
-        "{SDR_SERIAL}": os.getenv('SDR_SERIAL', '00000001')
+        "{SDR_SERIAL}": os.getenv('SDR_SERIAL', '00000001'),
+        "{SQUELCH}": os.getenv('TR_SQUELCH_DB', '-50'),     # From your terminal check
+        "{GAIN}": os.getenv('TR_GAIN_DB', '40'),           # From your terminal check
+        "{ANALOG_LEVELS}": os.getenv('TR_ANALOG_LEVELS', '15'),
+        "{SDR_RATE}": os.getenv('SDR_RATE', '2400000')     # Added for rate matching
     }
 
     for placeholder, value in replacements.items():
@@ -43,7 +48,8 @@ def update_config():
         
         with open(output_path, 'w') as f:
             f.write(config_str)
-        print(f"✅ Successfully generated {output_path} with System Type: {system_type}")
+        print(f"✅ Generated {output_path}")
+        print(f"   Squelch: {replacements['{SQUELCH}']} | Gain: {replacements['{GAIN}']}")
     except Exception as e:
         print(f"❌ Failed to write config: {e}")
 
