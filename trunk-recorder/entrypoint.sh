@@ -58,15 +58,19 @@ if [ ! -f "/data/config.json" ]; then
 fi
 
 # Third, use sed to inject the SDR hardware strings discovered in Step 3
-# We do this here because DEVICE_STR changes dynamically based on boot level
 echo "💉 Injecting SDR hardware strings: $DEVICE_STR @ $RATE_TO_USE"
 sed -i "s/\"device\": \".*\"/\"device\": \"$DEVICE_STR\"/g" /data/config.json
 sed -i "s/{SDR_RATE}/$RATE_TO_USE/g" /data/config.json
 
+# --- THE CRITICAL REDIRECT FIX ---
+# We overwrite the 'broken' template file with the 'clean' generated file.
+# This stops trunk-recorder from crashing on {TR_CENTER_HZ} parse errors.
+echo "💾 Overwriting app template with clean config to prevent parse errors..."
+cp /data/config.json /app/default-config.json
+
 # --- 5. STARTUP ---
-echo "✅ Configuration complete. Validating frequency settings:"
-grep -E "channels|device|modulation" /data/config.json
+echo "✅ Configuration complete. Validating frequency settings in final path:"
+grep -E "channels|device|modulation" /app/default-config.json
 
 echo "🚀 Launching Monitor..."
-# We execute the monitor, which is responsible for running trunk-recorder
 exec python3 /app/monitor.py
