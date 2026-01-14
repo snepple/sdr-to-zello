@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Install system dependencies + dos2unix
+# Install system dependencies + dos2unix + netcat for healthcheck bypass
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     curl \
     dos2unix \
+    netcat-openbsd \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
