@@ -1,4 +1,4 @@
-import json, math, os, shutil, subprocess, sys, logging, traceback, requests, time, datetime
+import json, math, os, shutil, subprocess, sys, logging, traceback, requests, time, datetime, fcntl
 from collections import deque
 from croniter import croniter
 
@@ -54,21 +54,13 @@ def check_reboot_timer():
         iter = croniter(REBOOT_CRON, now)
         next_reboot = iter.get_next(datetime.datetime)
         diff = (next_reboot - now).total_seconds()
+        # Trigger alert if we are in the 5-minute window (290-310s)
         if 290 <= diff <= 310 and not os.path.exists(ALERT_SENT_FILE):
             msg = ("Scheduled Maintenance for the radio gateway will occur in 5 minutes. "
                    "Transmissions from the radio frequency will not be available for 10 minutes.")
             send_zello_text(msg)
             with open(ALERT_SENT_FILE, "w") as f: f.write("sent")
     except Exception as e: logging.error(f"Timer error: {e}")
-
-# --- CONFIGURATION LOGIC (Restored) ---
-os.makedirs("/data/configs", exist_ok=True)
-if not os.path.exists(cfg_path):
-    logging.info("Copying default config to /data/configs/")
-    shutil.copy("/app/default-config.json", cfg_path)
-
-with open(cfg_path, "r") as f:
-    cfg = json.load(f)
 
 def set_if(env, keys, cast=None):
     v = os.getenv(env)
@@ -79,6 +71,15 @@ def set_if(env, keys, cast=None):
     d = cfg
     for k in keys[:-1]: d = d.setdefault(k, {})
     d[keys[-1]] = v
+
+# --- CONFIGURATION LOGIC ---
+os.makedirs("/data/configs", exist_ok=True)
+if not os.path.exists(cfg_path):
+    logging.info("Copying default config to /data/configs/")
+    shutil.copy("/app/default-config.json", cfg_path)
+
+with open(cfg_path, "r") as f:
+    cfg = json.load(f)
 
 set_if("ZELLO_USERNAME",     ["username"])
 set_if("ZELLO_PASSWORD",     ["password"])
@@ -92,7 +93,6 @@ set_if("AUDIO_THRESHOLD",    ["audio_threshold"], int)
 with open(cfg_path, "w") as f:
     json.dump(cfg, f, indent=2)
 
-# Create symlink for the app
 try:
     if os.path.islink(link_path) or os.path.exists(link_path): os.remove(link_path)
     os.symlink(cfg_path, link_path)
@@ -109,17 +109,34 @@ try:
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
     )
 
+    # --- NEW: SET STDOUT TO NON-BLOCKING ---
+    fd = process.stdout.fileno()
+    fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+    fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
     if state["in_error"]:
-        send_telegram(f"Gateway back online after {state['last_error']}.", is_resolution=True)
+        res_msg = f"Gateway back online after {state['last_error']}. Recovery successful."
+        send_telegram(res_msg, is_resolution=True)
         set_error_state(False)
 
     while True:
+        # 1. Check reboot timer every loop
         check_reboot_timer()
-        line = process.stdout.readline()
-        if not line and process.poll() is not None: break
-        if line:
-            print(line.strip())
-            log_buffer.append(line.strip())
+
+        # 2. Try to read a line without blocking the loop
+        try:
+            line = process.stdout.readline()
+            if line:
+                clean_line = line.strip()
+                print(clean_line)
+                log_buffer.append(clean_line)
+            elif process.poll() is not None:
+                # Subprocess has exited
+                break
+        except (IOError, TypeError):
+            # No data ready to read, just move on
+            pass
+
         time.sleep(0.1)
 
     exit_code = process.wait()
