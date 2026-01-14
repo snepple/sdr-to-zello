@@ -6,7 +6,7 @@
       "center": {TR_CENTER_HZ},
       "rate": {SDR_RATE},
       "error": 0,
-      "gain": 40,
+      "gain": {GAIN},
       "digitalRecorders": 0,
       "driver": "osmosdr",
       "device": "{SDR_DEVICE}"
@@ -18,7 +18,8 @@
       "type": "{SYSTEM_TYPE}",
       "channels": [{TR_CHANNELS_HZ}],
       "modulation": "{MODULATION}",
-      "squelch": -50
+      "squelch": {SQUELCH},
+      "analogLevels": {ANALOG_LEVELS}
     }
   ],
   "plugins": [
