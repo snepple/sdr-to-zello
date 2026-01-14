@@ -9,12 +9,12 @@
       "gain": 40,
       "digitalRecorders": 0,
       "driver": "osmosdr",
-      "device": "rtl={SDR_SERIAL}"
+      "device": "{SDR_DEVICE}"
     }
   ],
   "systems": [
     {
-      "label": "Clinton Fire",
+      "label": "Delta Ambulance",
       "type": "{SYSTEM_TYPE}",
       "channels": [{TR_CHANNELS_HZ}],
       "modulation": "{MODULATION}",
