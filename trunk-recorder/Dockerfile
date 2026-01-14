@@ -111,6 +111,10 @@ COPY trunk-recorder/monitor.py /app/monitor.py
 COPY trunk-recorder/configure.py /app/configure.py
 COPY configs/trunk-recorder.json /app/default-config.json
 
+# --- CRITICAL FIX: Remove the shadow config file ---
+# This ensures trunk-recorder is forced to look at the /data folder for its config
+RUN rm -f /app/config.json /usr/local/etc/trunk-recorder/config.json
+
 RUN dos2unix /entrypoint.sh /app/monitor.py /app/configure.py && \
     chmod +x /entrypoint.sh /app/monitor.py /app/configure.py
 
