@@ -38,9 +38,23 @@ esac
 
 echo "$NEXT_LEVEL" > "$ATTEMPT_FILE"
 
-# 4. Apply config and start
-python3 /app/configure.py
-sed -i "s/\"device\": \".*\"/\"device\": \"$DEVICE_STR\"/g" /app/default-config.json
-sed -i "s/{SDR_RATE}/$RATE_TO_USE/g" /app/default-config.json
+# 4. CONFIGURATION ENGINE
+echo "🔄 Generating runtime configuration..."
 
+# Run the python config script first to handle the {PLACEHOLDERS}
+# It should read from default-config.json and write to /data/config.json
+python3 /app/configure.py
+
+# Use sed to inject the specific SDR Serial and Rate discovered above into the NEW file
+# We target /data/config.json because that is what the monitor will actually use
+sed -i "s/\"device\": \".*\"/\"device\": \"$DEVICE_STR\"/g" /data/config.json
+sed -i "s/{SDR_RATE}/$RATE_TO_USE/g" /data/config.json
+
+# 5. Success Check
+if [ ! -f "/data/config.json" ]; then
+    echo "❌ ERROR: /data/config.json was not generated! Falling back to template..."
+    cp /app/default-config.json /data/config.json
+fi
+
+echo "🚀 Starting monitor with generated config..."
 exec python3 /app/monitor.py
