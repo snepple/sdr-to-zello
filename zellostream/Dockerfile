@@ -42,6 +42,9 @@ COPY configs/zello.json /app/default-config.json
 RUN dos2unix /app/start.sh /app/run.py && \
     chmod +x /app/start.sh /app/run.py
 
+# --- NEW: Disable the Healthcheck to prevent service restarts during silence ---
+HEALTHCHECK NONE
+
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 # Execute using absolute path
