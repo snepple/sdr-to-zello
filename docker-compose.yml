@@ -51,8 +51,7 @@ services:
       timeout: 20s               # Account for network latency
       retries: 3
       # --- CRITICAL FIX ---
-      # This MUST be longer than your longest START_DELAY. 
-      # 600s allows Fairfield (300s) and others to finish staggering.
+      # 600s (10 min) allows devices to finish staggering and clear 429 bans
       start_period: 600s         
     labels:
       io.balena.features.dbus: '1'
