@@ -1,6 +1,7 @@
 {
   "ver": 2,
   "audioStreaming": true,
+  "callTimeout": {CALL_TIMEOUT},
   "sources": [
     {
       "center": {TR_CENTER_HZ},
