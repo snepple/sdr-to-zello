@@ -1,58 +1,24 @@
 {
   "ver": 2,
   "audioStreaming": true,
-  "callTimeout": {CALL_TIMEOUT},
+  "callTimeout": 3,
   "sources": [
     {
-      "center": {TR_CENTER_HZ},
-      "rate": {SDR_RATE},
+      "center": 157000000,
+      "rate": 2400000,
       "error": 0,
-      "gain": {GAIN},
+      "gain": 40,
       "digitalRecorders": 0,
       "driver": "osmosdr",
-      "device": "{SDR_DEVICE}"
+      "device": "rtl=0"
     }
   ],
-  "systems": [
-    {
-      "label": "{CH1_LABEL}",
-      "type": "{CH1_TYPE}",
-      "shortName": "ch1",
-      "channels": [{CH1_FREQ}],
-      "modulation": "{CH1_MOD}",
-      "squelch": {CH1_SQUELCH},
-      "analogLevels": {CH1_LEVELS}
-    },
-    {
-      "label": "{CH2_LABEL}",
-      "type": "{CH2_TYPE}",
-      "shortName": "ch2",
-      "channels": [{CH2_FREQ}],
-      "modulation": "{CH2_MOD}",
-      "squelch": {CH2_SQUELCH},
-      "analogLevels": {CH2_LEVELS}
-    }
-  ],
+  "systems": [],
   "plugins": [
     {
       "name": "simplestream",
       "library": "libsimplestream.so",
-      "streams": [
-        {
-          "shortName": "ch1",
-          "TGID": 0,
-          "address": "127.0.0.1",
-          "port": 9123,
-          "sendJSON": false
-        },
-        {
-          "shortName": "ch2",
-          "TGID": 0,
-          "address": "127.0.0.1",
-          "port": 9124,
-          "sendJSON": false
-        }
-      ]
+      "streams": []
     }
   ]
 }
