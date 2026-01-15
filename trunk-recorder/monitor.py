@@ -12,7 +12,7 @@ DEVICE_NAME = os.getenv("BALENA_DEVICE_NAME_AT_INIT", "Unknown-Pi")
 # Persistent paths
 ATTEMPT_FILE = "/data/sdr_attempt_level"
 FAILURE_COUNT_FILE = "/data/consecutive_failures"
-# --- THE FIX: Point to the generated config in /data ---
+# Point to the generated config in /data created by configure.py
 CONFIG_PATH = "/data/config.json"
 
 def send_telegram(message):
@@ -22,7 +22,8 @@ def send_telegram(message):
     except: pass
 
 def reboot_device():
-    send_telegram("🔄 *Self-Heal: System Rebooting*\nHardware not found after all fallbacks. Clearing USB bus.")
+    # Updated message for dual-channel context
+    send_telegram("🔄 *Self-Heal: System Rebooting*\nHardware not found after all fallbacks for the dual-channel gateway. Clearing USB bus.")
     # Clear tracking files so we start fresh after reboot
     if os.path.exists(ATTEMPT_FILE): os.remove(ATTEMPT_FILE)
     if os.path.exists(FAILURE_COUNT_FILE): os.remove(FAILURE_COUNT_FILE)
@@ -37,7 +38,8 @@ try:
 except:
     consecutive_failures = 0
 
-# --- THE FIX: Updated command to use CONFIG_PATH (/data/config.json) ---
+# Launch Trunk Recorder with the dual-channel config
+print(f"🚀 Starting dual-channel Trunk Recorder using: {CONFIG_PATH}")
 process = subprocess.Popen(["trunk-recorder", "-c", CONFIG_PATH],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
@@ -53,6 +55,7 @@ for line in iter(process.stdout.readline, ''):
             if os.path.exists(FAILURE_COUNT_FILE): os.remove(FAILURE_COUNT_FILE)
             consecutive_failures = 0
 
+    # Hardware rejection detection
     if "Failed parsing Config" in line or "Wrong rtlsdr device index" in line:
         consecutive_failures += 1
         with open(FAILURE_COUNT_FILE, "w") as f:
@@ -61,7 +64,8 @@ for line in iter(process.stdout.readline, ''):
         if consecutive_failures >= 5:
             reboot_device()
         else:
-            send_telegram(f"❌ *SDR Fail ({consecutive_failures}/5)*\nHardware rejected. Trying next fallback level.")
+            # Updated message to reflect dual-channel reset attempt
+            send_telegram(f"❌ *SDR Fail ({consecutive_failures}/5)*\nDual-channel gateway hardware rejected. Trying next fallback level.")
             time.sleep(5)
             process.terminate()
             sys.exit(1)
