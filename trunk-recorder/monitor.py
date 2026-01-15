@@ -12,7 +12,6 @@ DEVICE_NAME = os.getenv("BALENA_DEVICE_NAME_AT_INIT", "Unknown-Pi")
 # Persistent paths
 ATTEMPT_FILE = "/data/sdr_attempt_level"
 FAILURE_COUNT_FILE = "/data/consecutive_failures"
-# --- THE FIX: Point to the generated config in /data ---
 CONFIG_PATH = "/data/config.json"
 
 def send_telegram(message):
@@ -21,13 +20,28 @@ def send_telegram(message):
     try: requests.post(url, json=payload, timeout=10)
     except: pass
 
+def check_usb_hardware():
+    """Checks if any RTL-SDR is visible to the Linux kernel."""
+    try:
+        result = subprocess.run(['lsusb'], capture_output=True, text=True)
+        # 0bda:2838 is the standard ID for RTL2832U devices
+        if "0bda:2838" not in result.stdout:
+            return False
+        return True
+    except:
+        return False
+
 def reboot_device():
     send_telegram("🔄 *Self-Heal: System Rebooting*\nHardware not found after all fallbacks. Clearing USB bus.")
-    # Clear tracking files so we start fresh after reboot
     if os.path.exists(ATTEMPT_FILE): os.remove(ATTEMPT_FILE)
     if os.path.exists(FAILURE_COUNT_FILE): os.remove(FAILURE_COUNT_FILE)
     time.sleep(5)
     os.system("curl -X POST --header 'Content-Type:application/json' $BALENA_SUPERVISOR_ADDRESS/v1/reboot?apikey=$BALENA_SUPERVISOR_API_KEY")
+
+# --- INITIAL HARDWARE CHECK ---
+if not check_usb_hardware():
+    send_telegram("⚠️ *CRITICAL*: RTL-SDR hardware is NOT detected on the USB bus! Please check physical connection.")
+    # We still try to run to see if it's a transient issue, but we've alerted the user.
 
 # Tracking Setup
 start_time = time.time()
@@ -37,7 +51,6 @@ try:
 except:
     consecutive_failures = 0
 
-# --- THE FIX: Updated command to use CONFIG_PATH (/data/config.json) ---
 process = subprocess.Popen(["trunk-recorder", "-c", CONFIG_PATH],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
@@ -45,7 +58,6 @@ for line in iter(process.stdout.readline, ''):
     line = line.strip()
     print(line)
     
-    # Success Reset: If we run for 5 mins, the hardware is fine.
     if (time.time() - start_time) > 300:
         if consecutive_failures > 0:
             print("✨ Hardware stable. Resetting counters.")
