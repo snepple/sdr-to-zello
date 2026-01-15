@@ -4,179 +4,72 @@
 
 To enable automated deployment to Balena, configure the following secrets in your GitHub repository:
 
-### Required Secrets
+### Required Secret
 
 1. **Navigate to GitHub Repository Settings**
-   - Go to your repository on GitHub
-   - Click on "Settings" tab
-   - Select "Secrets and variables" → "Actions"
+   - Go to your repository on GitHub.
+   - Click on the "Settings" tab.
+   - Select "Secrets and variables" → "Actions".
 
-2. **Add Required Secrets**
-   - Click "New repository secret"
-   - Add the following secrets:
+2. **Add Required Secret**
+   - Click "New repository secret".
+   - **Name**: `BALENA_API_TOKEN`
+   - **Value**: [Your Balena API Key]
 
-   ```
-   Name: BALENA_API_TOKEN
-   Value: 
-   ```
-
-### Balena Fleet Configuration
-
-- **Fleet Name**: `sam27/md3zello`
-- **Target Device**: Raspberry Pi (configured in Balena dashboard)
+---
 
 ## Balena Service Variables
 
-Configure these environment variables in your Balena dashboard at the Fleet or Device level:
+Configure these environment variables in your Balena dashboard at the **Fleet** or **Device** level. The system now supports two independent channels monitored by a single SDR.
 
-### Required Variables
+### Mandatory Variables (Must be set for the system to start)
 
-```
-ZELLO_USERNAME=
-ZELLO_PASSWORD=
-ZELLO_CHANNEL=
-ZELLO_WORK_ACCOUNT=
-```
+#### **Global SDR Settings**
+- **`TR_CENTER_HZ`**: The center frequency for the SDR (e.g., `156500000`).
+- **`SDR_RATE`**: Sample rate, typically `2400000` for Nooelec v5.
+- **`SDR_SERIAL`**: The serial number of your RTL-SDR (default: `00000001`).
 
-### Optional Variables (defaults provided)
+#### **Channel 1 (Primary)**
+- **`CH1_LABEL`**: The display name for Channel 1 (e.g., `Delta Ambulance`).
+- **`CH1_FREQ`**: Frequency in Hz (e.g., `155115000`).
+- **`CH1_USERNAME`**: Zello username for this stream.
+- **`CH1_PASSWORD`**: Zello password.
+- **`CH1_CHANNEL`**: Zello channel name.
+- **`CH1_WORK_ACCOUNT`**: Your Zello Work network name.
 
-```
-UDP_PORT=9123
-INPUT_RATE=16000
-ZELLO_RATE=16000
-AUDIO_THRESHOLD=700
-VOX_SILENCE_MS=2000
-# Zello VOX can also be set directly in seconds (takes precedence over VOX_SILENCE_MS)
-VOX_SILENCE_SECONDS=
+#### **Channel 2 (Secondary)**
+- **`CH2_LABEL`**: The display name for Channel 2 (e.g., `Sidney Fire`).
+- **`CH2_FREQ`**: Frequency in Hz (e.g., `158790000`).
+- **`CH2_USERNAME`**: Zello username for the second stream.
+- **`CH2_PASSWORD`**: Zello password.
+- **`CH2_CHANNEL`**: Zello channel name.
+- **`CH2_WORK_ACCOUNT`**: Zello Work network name.
 
-# Trunk Recorder tuning overrides (Hz / dB)
-TR_CENTER_HZ=154120625
-TR_SAMPLE_RATE=2048000
-TR_ERROR_HZ=9375
-TR_GAIN_DB=40
-TR_CHANNELS_HZ=154130000
-TR_SQUELCH_DB=-50
-TR_PLUGIN_PORT=9123
-TR_PLUGIN_ADDRESS=127.0.0.1
-TR_PLUGIN_TGID=0
-TR_PLUGIN_SEND_JSON=false
-```
+---
 
-### SDR Gain
+### Optional Tuning Variables (Defaults provided)
 
-- The default config sets the RTL-SDR gain to `40` dB (`configs/trunk-recorder.json`).
-- Adjust this value to match your hardware/noise floor; use tools like GQRX or `rtl_test -t` to determine the best setting.
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| **`CH1_SQUELCH`** | `-50` | Squelch level for Channel 1 (Higher = tighter). |
+| **`CH2_SQUELCH`** | `-50` | Squelch level for Channel 2 (Adjust if hearing static). |
+| **`CH1_UDP_PORT`** | `9123` | UDP port for Channel 1 audio. |
+| **`CH2_UDP_PORT`** | `9124` | UDP port for Channel 2 audio. |
+| **`TR_GAIN_DB`** | `40` | RTL-SDR hardware gain. |
+| **`VOX_SILENCE_MS`** | `3000` | How long to wait before ending a transmission (ms). |
+| **`BALENA_HOST_CONFIG_reboot_at`** | `None` | Cron expression for scheduled maintenance reboots. |
 
-## Deployment Methods
-
-### Automatic Deployment
-- Push to `main` branch triggers automatic deployment
-- Creates live release (devices update automatically)
-
-### Manual Deployment
-1. Go to "Actions" tab in GitHub repository
-2. Select "Deploy to Balena" workflow
-3. Click "Run workflow"
-4. Choose options:
-   - **Branch**: main
-   - **Create draft release**: Check to create draft (for testing)
-
-### Direct Balena Push (Alternative)
-```bash
-# Install Balena CLI
-npm install -g balena-cli
-
-# Login to Balena
-balena login
-
-# Push to fleet
-balena push sam27/md3zello
-```
+---
 
 ## Verification Steps
 
-### 1. Check Balena Dashboard
-- **Release Status**: Verify release is created and downloaded to device
-- **Service Status**: Both `trunk-recorder` and `zellostream` should show "Running"
-- **Health Checks**: Green checkmarks for both services
-- **Device Status**: Online and accessible
+### 1. Bandwidth Check
+The `configure.py` script automatically verifies that your two chosen frequencies are within **2.4 MHz** of each other. If they are too far apart, the service will fail to start and log an error.
 
-### 2. Verify Audio Pipeline
-Follow these steps in order to confirm end-to-end functionality:
-
-#### Step 2.1: Check RTL-SDR Hardware
-```bash
-# Access trunk-recorder container terminal via Balena dashboard
-lsusb | grep RTL2832U
-# Expected: Bus 001 Device 002: ID 0bda:2838 Realtek RTL2832U DVB-T
-```
-
-#### Step 2.2: Monitor Trunk Recorder Logs
-Look for these success indicators:
-```
-[INFO] Using device #0: RTL2832U
-[INFO] Tuning to 154.120625 MHz
-[INFO] SimpleStream plugin started on 127.0.0.1:9123
-```
-
-#### Step 2.3: Confirm SimpleStream Plugin
-```bash
-# Inside trunk-recorder container
-ls /usr/local/lib/trunk-recorder/plugins | grep simplestream
-# Expected: libsimplestream.so
-```
-
-#### Step 2.4: Verify UDP Stream
-```bash
-# In zellostream container terminal
-ss -u -l | grep 9123
-# Expected: UNCONN  0  0  127.0.0.1:9123
-```
-
-#### Step 2.5: Check ZelloStream Authentication
-Monitor logs for:
-```
-[INFO] Successfully authenticated with Zello
-[INFO] Connected to channel: Clinton
-[DEBUG] Audio threshold: 700, VOX silence: 2000ms
-```
-
-#### Step 2.6: Test Live Audio Flow
-1. Wait for radio activity on 154.13 MHz (Clinton Fire frequency)
-2. Trunk Recorder should log activity and start streaming
-3. ZelloStream should detect audio above threshold (700)
-4. Audio should appear in Zello channel "Clinton"
-
-### 3. Success Criteria
-- ✅ RTL-SDR hardware detected and accessible
-- ✅ Trunk Recorder tuned to correct frequency
-- ✅ SimpleStream plugin active on UDP port 9123
-- ✅ ZelloStream authenticated to Zello Work account "md3md3"
-- ✅ Connected to Zello channel "Clinton"
-- ✅ Audio streaming from radio to Zello channel
-- ✅ VOX working properly (no false triggers, catches all audio)
-
-## Troubleshooting
-
-### Build Failures
-- Check GitHub Actions logs
-- Verify all secrets are set correctly
-- Ensure Balena API token has fleet access
-
-### Deployment Issues
-- Check Balena dashboard for error messages
-- Verify device is online and accessible
-- Review service variables configuration
-
-### Audio Issues
-- Verify RTL-SDR hardware detection
-- Check UDP port binding
-- Review Zello authentication logs
-- Test VOX threshold settings
-
-## Security Notes
-
-- API tokens and credentials are stored securely in GitHub secrets
-- No sensitive data is committed to the repository
-- Environment variables are injected at runtime via Balena
-- Config files contain only placeholder values
+### 2. Monitor Dual Streams
+Access the Balena logs. You should see two distinct Zello processes starting:
+```text
+[CH1] Starting ZelloStream for user: DeltaAmbulance
+[CH2] Starting ZelloStream for user: SidneyFire
+[CH1] Connected to channel: Delta Ambulance
+[CH2] Connected to channel: Sidney Fire Rescue
