@@ -35,16 +35,26 @@ services:
     volumes:
       - data:/data
     environment:
-      - ZELLO_USERNAME
-      - ZELLO_PASSWORD
-      - ZELLO_CHANNEL
+      # Channel 1 (e.g., Delta)
+      - CH1_USERNAME
+      - CH1_PASSWORD
+      - CH1_CHANNEL
+      - CH1_WORK_ACCOUNT
+      - CH1_UDP_PORT=9123
+      
+      # Channel 2 (e.g., Sidney)
+      - CH2_USERNAME
+      - CH2_PASSWORD
+      - CH2_CHANNEL
+      - CH2_WORK_ACCOUNT
+      - CH2_UDP_PORT=9124
+
+      # Global Settings
       - ZELLO_WORK_ACCOUNT
-      - UDP_PORT=9123
       - INPUT_RATE=16000
       - ZELLO_RATE=16000
       - AUDIO_THRESHOLD=1000
       - VOX_SILENCE_MS=3000
-    # --- UPDATED: Disable the healthcheck here to match Dockerfile ---
     healthcheck:
       disable: true
     labels:
