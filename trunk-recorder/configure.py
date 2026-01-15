@@ -5,7 +5,6 @@ def update_config():
     template_path = '/app/default-config.json'
     output_path = '/data/config.json'
     
-    # 1. Load the template
     if not os.path.exists(template_path):
         print(f"❌ Template not found at {template_path}")
         return
@@ -13,43 +12,42 @@ def update_config():
     with open(template_path, 'r') as f:
         config_str = f.read()
 
-    # 2. Setup Variables with "conventional" as the safe default
-    raw_system_type = os.getenv('SYSTEM_TYPE', 'conventional')
-    
-    # Correction logic: Trunk Recorder uses 'conventional' for analog FM
-    if raw_system_type.lower() == 'analog':
-        system_type = 'conventional'
-    else:
-        system_type = raw_system_type
+    # Helper to clean system types
+    def get_sys_type(env_name):
+        val = os.getenv(env_name, 'conventional')
+        return 'conventional' if val.lower() == 'analog' else val
 
-    # 3. Replace placeholders with Dashboard Variables
-    # Maps your confirmed Balena variables to the JSON template placeholders
     replacements = {
+        # Global SDR Settings
         "{TR_CENTER_HZ}": os.getenv('TR_CENTER_HZ', '155115000'),
-        "{TR_CHANNELS_HZ}": os.getenv('TR_CHANNELS_HZ', '155115000'),
-        "{SYSTEM_TYPE}": system_type,
-        "{MODULATION}": os.getenv('MODULATION', 'fm'),
-        "{SDR_SERIAL}": os.getenv('SDR_SERIAL', '00000001'),
-        "{SQUELCH}": os.getenv('TR_SQUELCH_DB', '-50'),     # From your terminal check
-        "{GAIN}": os.getenv('TR_GAIN_DB', '40'),           # From your terminal check
-        "{ANALOG_LEVELS}": os.getenv('TR_ANALOG_LEVELS', '15'),
-        "{SDR_RATE}": os.getenv('SDR_RATE', '2400000')     # Added for rate matching
+        "{GAIN}": os.getenv('TR_GAIN_DB', '40'),
+        "{SDR_RATE}": os.getenv('SDR_RATE', '2400000'),
+
+        # Channel 1 Variables
+        "{CH1_LABEL}": os.getenv('CH1_LABEL', 'Channel 1'),
+        "{CH1_FREQ}": os.getenv('CH1_FREQ', '155115000'),
+        "{CH1_TYPE}": get_sys_type('CH1_TYPE'),
+        "{CH1_MOD}": os.getenv('CH1_MOD', 'fm'),
+        "{CH1_SQUELCH}": os.getenv('CH1_SQUELCH', '-50'),
+        "{CH1_LEVELS}": os.getenv('CH1_LEVELS', '15'),
+
+        # Channel 2 Variables
+        "{CH2_LABEL}": os.getenv('CH2_LABEL', 'Channel 2'),
+        "{CH2_FREQ}": os.getenv('CH2_FREQ', '158790000'),
+        "{CH2_TYPE}": get_sys_type('CH2_TYPE'),
+        "{CH2_MOD}": os.getenv('CH2_MOD', 'fm'),
+        "{CH2_SQUELCH}": os.getenv('CH2_SQUELCH', '-50'),
+        "{CH2_LEVELS}": os.getenv('CH2_LEVELS', '15')
     }
 
     for placeholder, value in replacements.items():
-        if value:
-            # We use string replacement for the template tags
-            config_str = config_str.replace(placeholder, str(value))
+        config_str = config_str.replace(placeholder, str(value))
 
-    # 4. Force write to the persistent /data directory
     try:
-        # Ensure the directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
         with open(output_path, 'w') as f:
             f.write(config_str)
-        print(f"✅ Generated {output_path}")
-        print(f"   Squelch: {replacements['{SQUELCH}']} | Gain: {replacements['{GAIN}']}")
+        print(f"✅ Generated Dual Channel Config")
     except Exception as e:
         print(f"❌ Failed to write config: {e}")
 
