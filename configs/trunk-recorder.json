@@ -14,22 +14,22 @@
   ],
   "systems": [
     {
-      "label": "Delta Ambulance",
-      "type": "{SYSTEM_TYPE}",
-      "shortName": "delta",
-      "channels": [{TR_CHANNELS_HZ}],
-      "modulation": "{MODULATION}",
-      "squelch": {SQUELCH},
-      "analogLevels": {ANALOG_LEVELS}
+      "label": "{CH1_LABEL}",
+      "type": "{CH1_TYPE}",
+      "shortName": "ch1",
+      "channels": [{CH1_FREQ}],
+      "modulation": "{CH1_MOD}",
+      "squelch": {CH1_SQUELCH},
+      "analogLevels": {CH1_LEVELS}
     },
     {
-      "label": "Sidney",
-      "type": "{SYSTEM_TYPE_SIDNEY}",
-      "shortName": "sidney",
-      "channels": [{TR_CHANNELS_HZ_SIDNEY}],
-      "modulation": "{MODULATION_SIDNEY}",
-      "squelch": {SQUELCH_SIDNEY},
-      "analogLevels": {ANALOG_LEVELS_SIDNEY}
+      "label": "{CH2_LABEL}",
+      "type": "{CH2_TYPE}",
+      "shortName": "ch2",
+      "channels": [{CH2_FREQ}],
+      "modulation": "{CH2_MOD}",
+      "squelch": {CH2_SQUELCH},
+      "analogLevels": {CH2_LEVELS}
     }
   ],
   "plugins": [
@@ -38,14 +38,14 @@
       "library": "libsimplestream.so",
       "streams": [
         {
-          "shortName": "delta",
+          "shortName": "ch1",
           "TGID": 0,
           "address": "127.0.0.1",
           "port": 9123,
           "sendJSON": false
         },
         {
-          "shortName": "sidney",
+          "shortName": "ch2",
           "TGID": 0,
           "address": "127.0.0.1",
           "port": 9124,
