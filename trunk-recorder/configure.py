@@ -11,68 +11,76 @@ def update_config():
         return
 
     with open(template_path, 'r') as f:
-        config_str = f.read()
+        template_json = json.load(f)
 
-    # --- 1. FREQUENCY VALIDATION ---
-    ch1_freq = int(os.getenv('CH1_FREQ', '155115000'))
-    ch2_freq = int(os.getenv('CH2_FREQ', '158790000'))
+    # --- 1. CONFIGURATION DETECTOR ---
+    # Supports both new CHx_FREQ and legacy TR_CHANNELS_HZ variables
+    ch1_raw = os.getenv('CH1_FREQ', os.getenv('TR_CHANNELS_HZ'))
+    ch2_raw = os.getenv('CH2_FREQ')
     sdr_rate = int(os.getenv('SDR_RATE', '2400000'))
     
-    # Calculate the spread
-    freq_diff = abs(ch1_freq - ch2_freq)
+    # Identify which channels are active
+    active_channels = []
+    if ch1_raw: active_channels.append(int(ch1_raw))
+    if ch2_raw: active_channels.append(int(ch2_raw))
+
+    if not active_channels:
+        print("❌ ERROR: No frequencies configured. Set CH1_FREQ or CH2_FREQ.")
+        sys.exit(1)
+
+    # --- 2. DYNAMIC SYSTEM & STREAM BUILDING ---
+    systems = []
+    streams = []
     
-    print(f"📡 Checking Bandwidth: Ch1: {ch1_freq}Hz | Ch2: {ch2_freq}Hz")
-    print(f"📊 Frequency Spread: {freq_diff / 1000000:.2f} MHz")
+    # Process Channel 1
+    if ch1_raw:
+        systems.append({
+            "label": os.getenv('CH1_LABEL', 'Channel 1'),
+            "type": 'conventional' if os.getenv('CH1_TYPE', '').lower() == 'analog' else os.getenv('CH1_TYPE', 'conventional'),
+            "shortName": "ch1",
+            "channels": [int(ch1_raw)],
+            "modulation": os.getenv('CH1_MOD', 'fm'),
+            "squelch": int(os.getenv('CH1_SQUELCH', '-50')),
+            "analogLevels": int(os.getenv('CH1_LEVELS', '15'))
+        })
+        streams.append({"shortName": "ch1", "TGID": 0, "address": "127.0.0.1", "port": int(os.getenv('CH1_UDP_PORT', 9123)), "sendJSON": False})
 
-    # Safety Check: The spread must be less than the sample rate (bandwidth)
-    # We use 90% of the rate as a safety buffer for filter roll-off
-    if freq_diff > (sdr_rate * 0.9):
-        print(f"❌ ERROR: Frequencies are too far apart ({freq_diff / 1000000:.2f} MHz).")
-        print(f"💡 Max spread allowed with {sdr_rate/1000000:.1f} MHz sample rate is {(sdr_rate * 0.9)/1000000:.2f} MHz.")
-        sys.exit(1) # Halt the start to prevent silent failure
+    # Process Channel 2
+    if ch2_raw:
+        systems.append({
+            "label": os.getenv('CH2_LABEL', 'Channel 2'),
+            "type": 'conventional' if os.getenv('CH2_TYPE', '').lower() == 'analog' else os.getenv('CH2_TYPE', 'conventional'),
+            "shortName": "ch2",
+            "channels": [int(ch2_raw)],
+            "modulation": os.getenv('CH2_MOD', 'fm'),
+            "squelch": int(os.getenv('CH2_SQUELCH', '-50')),
+            "analogLevels": int(os.getenv('CH2_LEVELS', '15'))
+        })
+        streams.append({"shortName": "ch2", "TGID": 0, "address": "127.0.0.1", "port": int(os.getenv('CH2_UDP_PORT', 9124)), "sendJSON": False})
+
+    # --- 3. BANDWIDTH & CENTER CALCULATION ---
+    if len(active_channels) == 2:
+        freq_diff = abs(active_channels[0] - active_channels[1])
+        if freq_diff > (sdr_rate * 0.9):
+            print(f"❌ ERROR: Frequencies too far apart ({freq_diff / 1000000:.2f} MHz).")
+            sys.exit(1)
+        center_hz = int(sum(active_channels) / 2)
     else:
-        print("✅ Bandwidth check passed.")
+        center_hz = active_channels[0]
 
-    # --- 2. CENTER FREQUENCY CALCULATION ---
-    # Automatically set the SDR center to the middle of the two channels
-    center_hz = int((ch1_freq + ch2_freq) / 2)
-
-    # Helper to clean system types
-    def get_sys_type(env_name):
-        val = os.getenv(env_name, 'conventional')
-        return 'conventional' if val.lower() == 'analog' else val
-
-    replacements = {
-        # Global SDR Settings (Auto-centered)
-        "{TR_CENTER_HZ}": center_hz,
-        "{GAIN}": os.getenv('TR_GAIN_DB', '40'),
-        "{SDR_RATE}": sdr_rate,
-
-        # Channel 1 Variables
-        "{CH1_LABEL}": os.getenv('CH1_LABEL', 'Channel 1'),
-        "{CH1_FREQ}": ch1_freq,
-        "{CH1_TYPE}": get_sys_type('CH1_TYPE'),
-        "{CH1_MOD}": os.getenv('CH1_MOD', 'fm'),
-        "{CH1_SQUELCH}": os.getenv('CH1_SQUELCH', '-50'),
-        "{CH1_LEVELS}": os.getenv('CH1_LEVELS', '15'),
-
-        # Channel 2 Variables
-        "{CH2_LABEL}": os.getenv('CH2_LABEL', 'Channel 2'),
-        "{CH2_FREQ}": ch2_freq,
-        "{CH2_TYPE}": get_sys_type('CH2_TYPE'),
-        "{CH2_MOD}": os.getenv('CH2_MOD', 'fm'),
-        "{CH2_SQUELCH}": os.getenv('CH2_SQUELCH', '-50'),
-        "{CH2_LEVELS}": os.getenv('CH2_LEVELS', '15')
-    }
-
-    for placeholder, value in replacements.items():
-        config_str = config_str.replace(placeholder, str(value))
+    # --- 4. ASSEMBLE FINAL JSON ---
+    config = template_json
+    config["sources"][0]["center"] = center_hz
+    config["sources"][0]["rate"] = sdr_rate
+    config["sources"][0]["gain"] = int(os.getenv('TR_GAIN_DB', '40'))
+    config["systems"] = systems
+    config["plugins"][0]["streams"] = streams
 
     try:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, 'w') as f:
-            f.write(config_str)
-        print(f"✅ Generated Dual Channel Config (Centered at {center_hz} Hz)")
+            json.dump(config, f, indent=2)
+        print(f"✅ Generated {'Dual' if len(active_channels) == 2 else 'Single'} Channel Config")
     except Exception as e:
         print(f"❌ Failed to write config: {e}")
         sys.exit(1)
