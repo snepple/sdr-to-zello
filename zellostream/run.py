@@ -1,5 +1,9 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import json, math, os, shutil, subprocess, sys, logging, traceback, requests, time, datetime, fcntl
+=======
+import json, math, os, shutil, subprocess, sys, logging, traceback, requests, time
+>>>>>>> parent of 87b08ef (Update run.py)
 =======
 import json, math, os, shutil, subprocess, sys, logging, traceback, requests, time
 >>>>>>> parent of 87b08ef (Update run.py)
@@ -11,6 +15,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 cfg_path = "/data/configs/zello.json"
 link_path = "/app/config.json"
 <<<<<<< HEAD
+<<<<<<< HEAD
 BOOT_FLAG = "/dev/shm/zello_stagger_done" 
 LAST_429_ALERT_FILE = "/data/last_429_alert.txt"
 ERROR_STATE_FILE = "/data/error_state.json"
@@ -20,6 +25,10 @@ ALERT_SENT_FILE = "/tmp/maint_alert_sent"
 =======
 BOOT_FLAG = "/dev/shm/zello_stagger_done" # RAM flag managed by start.sh
 
+=======
+BOOT_FLAG = "/dev/shm/zello_stagger_done" # RAM flag managed by start.sh
+
+>>>>>>> parent of 87b08ef (Update run.py)
 # Permanent storage for timestamps to survive restarts
 LAST_429_ALERT_FILE = "/data/last_429_alert.txt"
 
@@ -30,6 +39,7 @@ CHAT_ID = "8322536156"
 DEVICE_NAME = os.getenv("BALENA_DEVICE_NAME_AT_INIT", "Unknown-Pi")
 REBOOT_CRON = os.getenv('BALENA_HOST_CONFIG_reboot_at')
 
+<<<<<<< HEAD
 # --- HELPER FUNCTIONS ---
 def get_error_state():
     if os.path.exists(ERROR_STATE_FILE):
@@ -123,12 +133,55 @@ def send_telegram(message, silent=False, alert_type=None):
     except Exception as e:
         logging.error(f"Failed to send Telegram alert: {e}")
 >>>>>>> parent of 87b08ef (Update run.py)
+=======
+def should_send_alert(file_path, interval_seconds):
+    """Checks if enough time has passed to send another alert of this type."""
+    now = time.time()
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r") as f:
+                last_time = float(f.read().strip())
+            if now - last_time < interval_seconds:
+                return False
+        except:
+            pass
+    # Update the file with the new timestamp
+    with open(file_path, "w") as f:
+        f.write(str(now))
+    return True
+
+def send_telegram(message, silent=False, alert_type=None):
+    """
+    Sends a notification to Telegram with rate limiting.
+    alert_type can be '429' (1hr limit).
+    """
+    if alert_type == "429":
+        if not should_send_alert(LAST_429_ALERT_FILE, 3600):
+            logging.info("Suppressing 429 Telegram alert (rate limit).")
+            return
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": f"🚨 *{DEVICE_NAME}*\n{message}",
+        "parse_mode": "Markdown",
+        "disable_notification": silent
+    }
+    try:
+        requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+        logging.error(f"Failed to send Telegram alert: {e}")
+>>>>>>> parent of 87b08ef (Update run.py)
 
 # --- CONFIGURATION LOGIC ---
 os.makedirs("/data/configs", exist_ok=True)
 if not os.path.exists(cfg_path):
 <<<<<<< HEAD
+<<<<<<< HEAD
     logging.info("Copying default config to /data/configs/")
+=======
+    logging.info("Copying default zello config to /data/configs/")
+>>>>>>> parent of 87b08ef (Update run.py)
 =======
     logging.info("Copying default zello config to /data/configs/")
 >>>>>>> parent of 87b08ef (Update run.py)
@@ -138,7 +191,10 @@ with open(cfg_path, "r") as f:
     cfg = json.load(f)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> parent of 87b08ef (Update run.py)
 def set_if(env, keys, cast=None):
     v = os.getenv(env)
     if not v: return
@@ -149,6 +205,9 @@ def set_if(env, keys, cast=None):
     for k in keys[:-1]: d = d.setdefault(k, {})
     d[keys[-1]] = v
 
+<<<<<<< HEAD
+>>>>>>> parent of 87b08ef (Update run.py)
+=======
 >>>>>>> parent of 87b08ef (Update run.py)
 set_if("ZELLO_USERNAME",     ["username"])
 set_if("ZELLO_PASSWORD",     ["password"])
@@ -164,15 +223,21 @@ with open(cfg_path, "w") as f:
 
 try:
 <<<<<<< HEAD
+<<<<<<< HEAD
     if os.path.islink(link_path) or os.path.exists(link_path): os.remove(link_path)
     os.symlink(cfg_path, link_path)
 except: shutil.copy(cfg_path, link_path)
 =======
+=======
+>>>>>>> parent of 87b08ef (Update run.py)
     if os.path.islink(link_path) or os.path.exists(link_path):
         os.remove(link_path)
     os.symlink(cfg_path, link_path)
 except OSError:
     shutil.copy(cfg_path, link_path)
+<<<<<<< HEAD
+>>>>>>> parent of 87b08ef (Update run.py)
+=======
 >>>>>>> parent of 87b08ef (Update run.py)
 
 # --- EXECUTION & MONITORING ---
@@ -187,6 +252,7 @@ try:
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
     )
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     # --- NEW: SET STDOUT TO NON-BLOCKING ---
     fd = process.stdout.fileno()
@@ -225,6 +291,8 @@ try:
         set_error_state(True, err_type)
         send_telegram(f"❌ *Crashed ({exit_code})*\nLogs:\n```{recent}```")
 =======
+=======
+>>>>>>> parent of 87b08ef (Update run.py)
     for line in iter(process.stdout.readline, ''):
         clean_line = line.strip()
         if clean_line:
@@ -253,6 +321,9 @@ try:
             err_msg = f"❌ *Process Crashed (Exit {exit_code})*\n\n*Logs:*\n```{recent_logs}```"
             send_telegram(err_msg)
     
+<<<<<<< HEAD
+>>>>>>> parent of 87b08ef (Update run.py)
+=======
 >>>>>>> parent of 87b08ef (Update run.py)
     sys.exit(exit_code)
 
