@@ -26,9 +26,9 @@ RUN git clone --depth 1 https://github.com/aaknitt/zellostream.git /tmp/repo \
     && cp -r /tmp/repo/* /app/ \
     && rm -rf /tmp/repo
 
-# 2. Install requirements + cron utilities for maintenance alerts
+# 2. Install requirements
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir requests croniter pytz && \
+    pip install --no-cache-dir requests && \
     if [ -f requirements.txt ]; then \
       pip install --no-cache-dir -r requirements.txt; \
     fi
@@ -42,7 +42,7 @@ COPY configs/zello.json /app/default-config.json
 RUN dos2unix /app/start.sh /app/run.py && \
     chmod +x /app/start.sh /app/run.py
 
-# --- Disable the Healthcheck to prevent service restarts during silence ---
+# --- NEW: Disable the Healthcheck to prevent service restarts during silence ---
 HEALTHCHECK NONE
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
