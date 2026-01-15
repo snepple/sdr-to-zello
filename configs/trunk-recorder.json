@@ -1,6 +1,7 @@
 {
   "ver": 2,
   "audioStreaming": true,
+  "callTimeout": {CALL_TIMEOUT},
   "sources": [
     {
       "center": {TR_CENTER_HZ},
@@ -14,7 +15,7 @@
   ],
   "systems": [
     {
-      "label": "Delta Ambulance",
+      "label": "Radio Gateway",
       "type": "{SYSTEM_TYPE}",
       "channels": [{TR_CHANNELS_HZ}],
       "modulation": "{MODULATION}",
