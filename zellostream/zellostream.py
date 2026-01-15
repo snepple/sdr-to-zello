@@ -2,7 +2,6 @@ import os
 import json
 import time
 import sys
-import requests
 
 def get_config():
     """Fail-safe config loader for dynamic dual-channel mode."""
@@ -12,16 +11,17 @@ def get_config():
             with open(config_path) as f:
                 return json.load(f)
     except Exception as e:
-        print(f"ℹ️ Note: Using environment variables only.")
+        print(f"ℹ️ Note: File config.json not found, using environment variables.")
     
-    # Return empty dict so it falls back to environment variables
+    # Return empty dict so logic falls back to environment variables
     return {}
 
 def main():
     config = get_config()
-    username = os.getenv("ZELLO_USERNAME")
-    password = os.getenv("ZELLO_PASSWORD")
-    channel = os.getenv("ZELLO_CHANNEL")
+    # Priority: Env Var > Config File
+    username = os.getenv("ZELLO_USERNAME", config.get("username"))
+    password = os.getenv("ZELLO_PASSWORD", config.get("password"))
+    channel = os.getenv("ZELLO_CHANNEL", config.get("channel"))
     port = os.getenv("UDP_PORT", "9123")
     
     if not all([username, password, channel]):
@@ -30,8 +30,8 @@ def main():
 
     print(f"✅ Zello Engine Active: {username} -> {channel} (UDP:{port})")
     
-    # Placeholder for actual Zello streaming logic
-    # In your production code, this is where the WebSocket and Audio loop live.
+    # This loop keeps the script running. 
+    # In a full production build, your WebSocket audio logic goes here.
     try:
         while True:
             time.sleep(60)
