@@ -6,7 +6,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     dumb-init \
     ffmpeg \
-    git \
     libasound2 \
     libpulse0 \
     libportaudio2 \
@@ -21,28 +20,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 1. Clone the repository base
-RUN git clone --depth 1 https://github.com/aaknitt/zellostream.git /tmp/repo \
-    && cp -r /tmp/repo/* /app/ \
-    && rm -rf /tmp/repo
-
-# 2. Install requirements (Added croniter for dual-channel timing logic)
+# Install Python requirements
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir requests croniter && \
-    if [ -f requirements.txt ]; then \
-      pip install --no-cache-dir -r requirements.txt; \
-    fi
+    pip install --no-cache-dir requests croniter
 
-# 3. Copy your custom dual-channel scripts
+# COPY THE FILES FROM YOUR COMPUTER (This is the fix)
 COPY zellostream/run.py /app/run.py
+COPY zellostream/zellostream.py /app/zellostream.py
 COPY zellostream/start.sh /app/start.sh
-COPY configs/zello.json /app/default-config.json
 
-# 4. Convert line endings and set permissions
-RUN dos2unix /app/start.sh /app/run.py && \
-    chmod +x /app/start.sh /app/run.py
-
-HEALTHCHECK NONE
+RUN dos2unix /app/start.sh /app/run.py /app/zellostream.py && \
+    chmod +x /app/start.sh
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["/bin/bash", "/app/start.sh"]
+CMD ["/app/start.sh"]
