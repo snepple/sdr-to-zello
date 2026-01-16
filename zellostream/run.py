@@ -75,17 +75,24 @@ def set_if(env, keys, cast=None):
     for k in keys[:-1]: d = d.setdefault(k, {})
     d[keys[-1]] = v
 
+# Primary Channel Credentials
 set_if("ZELLO_USERNAME",     ["username"])
 set_if("ZELLO_PASSWORD",     ["password"])
-set_if("ZELLO_WORK_ACCOUNT", ["zello_work_account_name"])
 set_if("ZELLO_CHANNEL",      ["zello_channel"])
+
+# Secondary Channel Credentials (New for Dual Channel Support)
+set_if("ZELLO_USERNAME_2",   ["username_2"])
+set_if("ZELLO_PASSWORD_2",   ["password_2"])
+set_if("ZELLO_CHANNEL_2",    ["zello_channel_2"])
+
+# Global System Settings
+set_if("ZELLO_WORK_ACCOUNT", ["zello_work_account_name"])
 set_if("UDP_PORT",           ["UDP_PORT"], int)
 set_if("INPUT_RATE",         ["audio_input_sample_rate"], int)
 set_if("ZELLO_RATE",         ["zello_sample_rate"], int)
 set_if("AUDIO_THRESHOLD",    ["audio_threshold"], int)
 
 # --- MIN DURATION (STATIC FILTER) LOGIC ---
-# Default to 0 (off) if variable is not provided
 min_duration = os.getenv("MIN_DURATION_MS")
 if min_duration:
     cfg["min_duration_ms"] = int(min_duration)
@@ -160,3 +167,4 @@ except Exception as e:
     set_error_state(True, "Launcher Error")
     send_telegram(f"🔥 *Launcher Error*\n```{str(e)}```")
     sys.exit(1)
+``` [cite: 17, 19]
