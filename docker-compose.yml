@@ -14,11 +14,11 @@ services:
       - data:/data
     command: ["python3", "/app/monitor.py"]
     environment:
-      - SILENCE_SETTING # Master variable (used as seconds)
+      - SILENCE_SETTING
       - TR_SQUELCH_DB
       - TR_SIGNAL_THRESHOLD
-      - FREQ_1            # Frequency for first system
-      - FREQ_2            # Frequency for second system
+      - FREQ_1
+      - FREQ_2
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
       interval: 45s
@@ -41,15 +41,15 @@ services:
     volumes:
       - data:/data
     environment:
-      - ZELLO_USERNAME
-      - ZELLO_PASSWORD
+      - ZELLO_USERNAME=${ZELLO_USERNAME_1}
+      - ZELLO_PASSWORD=${ZELLO_PASSWORD_1}
       - ZELLO_CHANNEL=${ZELLO_CHANNEL_1}
       - ZELLO_WORK_ACCOUNT
-      - UDP_PORT=9123     # Unique port for first stream
+      - UDP_PORT=9123
       - INPUT_RATE=16000
       - ZELLO_RATE=16000
       - AUDIO_THRESHOLD
-      - SILENCE_SETTING   # Synchronized with master variable
+      - SILENCE_SETTING
     healthcheck:
       disable: true
     labels:
@@ -66,15 +66,15 @@ services:
     volumes:
       - data:/data
     environment:
-      - ZELLO_USERNAME
-      - ZELLO_PASSWORD
+      - ZELLO_USERNAME=${ZELLO_USERNAME_2}
+      - ZELLO_PASSWORD=${ZELLO_PASSWORD_2}
       - ZELLO_CHANNEL=${ZELLO_CHANNEL_2}
       - ZELLO_WORK_ACCOUNT
-      - UDP_PORT=9124     # Unique port for second stream
+      - UDP_PORT=9124
       - INPUT_RATE=16000
       - ZELLO_RATE=16000
       - AUDIO_THRESHOLD
-      - SILENCE_SETTING   # Synchronized with master variable
+      - SILENCE_SETTING
     healthcheck:
       disable: true
     labels:
