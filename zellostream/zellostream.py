@@ -3,27 +3,25 @@ import time
 import sys
 
 def main():
-    # Priority: Specific CHx variables > Global ZELLO variables
+    print("🚀 DEPLOYMENT VERIFIED: Dual-Channel Engine Starting...")
+    
+    # Get credentials from Balena Dashboard variables passed by run.py
     username = os.getenv("ZELLO_USERNAME")
     password = os.getenv("ZELLO_PASSWORD")
     channel = os.getenv("ZELLO_CHANNEL")
     port = os.getenv("UDP_PORT", "9123")
-    work_account = os.getenv("ZELLO_WORK_ACCOUNT", "md3md3")
 
-    # Validation Guard: Prevent engine from starting if credentials aren't passed
     if not all([username, password, channel]):
-        print(f"❌ CH ERROR: Missing credentials for Port {port}")
-        print(f"   Ensure Dashboard vars like CH1_USERNAME are set correctly.")
+        print(f"❌ ERROR: Missing Zello credentials for Port {port}")
         sys.exit(1)
 
     print(f"✅ Zello Engine Active: {username} -> {channel} (UDP:{port})")
     
     try:
         while True:
-            # Engine stays alive to process incoming audio packets
+            # Engine stays alive to wait for audio from trunk-recorder
             time.sleep(60)
     except KeyboardInterrupt:
-        print("Stopping engine...")
         sys.exit(0)
 
 if __name__ == "__main__":
