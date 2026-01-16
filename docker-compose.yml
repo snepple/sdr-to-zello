@@ -15,9 +15,9 @@ services:
     command: ["python3", "/app/monitor.py"]
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
-      interval: 45s
-      timeout: 10s
-      retries: 3
+    interval: 45s
+    timeout: 10s
+    retries: 3
     labels:
       io.balena.features.kernel-modules: '1'
       io.balena.features.firmware: '1'
@@ -42,8 +42,8 @@ services:
       - UDP_PORT=9123
       - INPUT_RATE=16000
       - ZELLO_RATE=16000
-      - AUDIO_THRESHOLD=1000
-      - VOX_SILENCE_MS=3000
+      - AUDIO_THRESHOLD  # Removed hardcoded 1000 to allow Balena override
+      - VOX_SILENCE_MS   # Removed hardcoded 3000 to allow Balena override
     # --- UPDATED: Disable the healthcheck here to match Dockerfile ---
     healthcheck:
       disable: true
