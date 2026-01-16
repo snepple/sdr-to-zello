@@ -1,54 +1,88 @@
 import os
 import json
+import sys
 
 def update_config():
     template_path = '/app/default-config.json'
     output_path = '/data/config.json'
     
-    # 1. Load the template
-    if not os.path.exists(template_path):
-        print(f"❌ Template not found at {template_path}")
+    if os.path.exists(template_path):
+        with open(template_path, 'r') as f:
+            config = json.load(f)
+    else:
+        config = {"sources": [], "systems": [], "captureDir": "/data"}
+
+    # 1. Fetch Frequencies from Environment
+    f1_raw = os.getenv('FREQ_1')
+    f2_raw = os.getenv('FREQ_2')
+    
+    active_freqs = []
+    if f1_raw: active_freqs.append(int(f1_raw))
+    if f2_raw: active_freqs.append(int(f2_raw))
+
+    if not active_freqs:
+        print("❌ Error: No frequencies configured in FREQ_1 or FREQ_2.")
         return
 
-    with open(template_path, 'r') as f:
-        config_str = f.read()
-
-    # 2. Setup Variables with "conventional" as the safe default
-    raw_system_type = os.getenv('SYSTEM_TYPE', 'conventional')
+    # 2. SDR Validation and Center Frequency Calculation
+    sdr_rate = int(os.getenv('SDR_RATE', '2400000'))
+    # Use 90% of sample rate as usable bandwidth to avoid edge roll-off
+    usable_bandwidth = sdr_rate * 0.9 
     
-    # Correction logic: Trunk Recorder uses 'conventional' for analog FM
-    if raw_system_type.lower() == 'analog':
-        system_type = 'conventional'
+    if len(active_freqs) == 2:
+        spread = abs(active_freqs[0] - active_freqs[1])
+        if spread > usable_bandwidth:
+            print(f"❌ Error: Frequency spread ({spread/1e6:.2f} MHz) exceeds SDR bandwidth ({usable_bandwidth/1e6:.2f} MHz).")
+            return
+        # Set center exactly between the two frequencies
+        center_freq = int(min(active_freqs) + (spread / 2))
     else:
-        system_type = raw_system_type
+        # Only one frequency configured
+        center_freq = active_freqs[0]
 
-    # 3. Replace placeholders with Dashboard Variables
-    # Includes new CALL_TIMEOUT to stop audio clipping
-    replacements = {
-        "{TR_CENTER_HZ}": os.getenv('TR_CENTER_HZ', '155115000'),
-        "{TR_CHANNELS_HZ}": os.getenv('TR_CHANNELS_HZ', '155115000'),
-        "{SYSTEM_TYPE}": system_type,
-        "{MODULATION}": os.getenv('MODULATION', 'fm'),
-        "{SDR_SERIAL}": os.getenv('SDR_SERIAL', '00000001'),
-        "{SQUELCH}": os.getenv('TR_SQUELCH_DB', '-45'),     # Improved sensitivity
-        "{GAIN}": os.getenv('TR_GAIN_DB', '45'),           # Higher gain for faster trigger
-        "{ANALOG_LEVELS}": os.getenv('TR_ANALOG_LEVELS', '15'),
-        "{SDR_RATE}": os.getenv('SDR_RATE', '2400000'),
-        "{CALL_TIMEOUT}": os.getenv('TR_CALL_TIMEOUT', '4') # Bridges gaps in speech
-    }
+    # 3. Define Systems
+    systems = []
+    system_type = 'conventional' if os.getenv('SYSTEM_TYPE', 'conventional').lower() == 'analog' else os.getenv('SYSTEM_TYPE', 'conventional')
+    
+    if f1_raw:
+        systems.append({
+            "shortName": "sys_1",
+            "type": system_type,
+            "control_channels": [int(f1_raw)],
+            "modulation": os.getenv('MODULATION', 'fm'),
+            "squelch": int(os.getenv('TR_SQUELCH_DB', '-45')),
+            "audioStreaming": "true",
+            "streamAddress": "127.0.0.1",
+            "streamPort": 9123
+        })
 
-    for placeholder, value in replacements.items():
-        if value:
-            config_str = config_str.replace(placeholder, str(value))
+    if f2_raw:
+        systems.append({
+            "shortName": "sys_2",
+            "type": system_type,
+            "control_channels": [int(f2_raw)],
+            "modulation": os.getenv('MODULATION', 'fm'),
+            "squelch": int(os.getenv('TR_SQUELCH_DB', '-45')),
+            "audioStreaming": "true",
+            "streamAddress": "127.0.0.1",
+            "streamPort": 9124
+        })
 
-    # 4. Force write to the persistent /data directory
+    config["systems"] = systems
+
+    # 4. Update SDR Source Settings
+    if "sources" in config and len(config["sources"]) > 0:
+        config["sources"][0]["center"] = int(os.getenv('TR_CENTER_HZ', center_freq))
+        config["sources"][0]["rate"] = sdr_rate
+        config["sources"][0]["gain"] = int(os.getenv('TR_GAIN_DB', '45'))
+        config["sources"][0]["serial"] = os.getenv('SDR_SERIAL', '00000001')
+
+    # 5. Write Config
     try:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
         with open(output_path, 'w') as f:
-            f.write(config_str)
-        print(f"✅ Generated {output_path}")
-        print(f"   Squelch: {replacements['{SQUELCH}']} | Gain: {replacements['{GAIN}']} | Timeout: {replacements['{CALL_TIMEOUT}']}s")
+            json.dump(config, f, indent=4)
+        print(f"✅ Config Generated. Center: {center_freq/1e6:.4f} MHz | Systems: {len(systems)}")
     except Exception as e:
         print(f"❌ Failed to write config: {e}")
 
