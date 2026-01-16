@@ -21,13 +21,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Install Python requirements
+# ADDED: websocket-client (Required for Zello login)
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir requests croniter
+    pip install --no-cache-dir requests croniter websocket-client
 
-# COPY THE FILES FROM YOUR COMPUTER (This is the fix)
+# COPY the files from your local computer
+# Note: Ensure these paths match your local folder structure
 COPY zellostream/run.py /app/run.py
 COPY zellostream/zellostream.py /app/zellostream.py
 COPY zellostream/start.sh /app/start.sh
+
+# OPTIONAL: Copy config if you have one locally, otherwise the script uses env vars
+# COPY configs/zello.json /app/config.json
 
 RUN dos2unix /app/start.sh /app/run.py /app/zellostream.py && \
     chmod +x /app/start.sh
