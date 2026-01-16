@@ -14,16 +14,22 @@ services:
       - data:/data
     command: ["python3", "/app/monitor.py"]
     environment:
-      - SILENCE_SETTING
-      # Primary Channel
-      - FREQ_1
-      - ZELLO_CHANNEL_1
-      # Secondary Channel
-      - FREQ_2
-      - ZELLO_CHANNEL_2
-    # ... (labels and healthchecks)
+      - SILENCE_SETTING # Master variable (used as seconds)
+      - TR_SQUELCH_DB
+      - TR_SIGNAL_THRESHOLD
+      - FREQ_1            # Frequency for first system
+      - FREQ_2            # Frequency for second system
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
+      interval: 45s
+      timeout: 10s
+      retries: 3
+    labels:
+      io.balena.features.kernel-modules: '1'
+      io.balena.features.firmware: '1'
+      io.balena.features.dbus: '1'
+      io.balena.features.supervisor-api: '1'
 
-  # Service for the First Frequency
   zellostream_1:
     build:
       context: .
@@ -32,15 +38,23 @@ services:
     depends_on:
       - trunk-recorder
     network_mode: host
+    volumes:
+      - data:/data
     environment:
       - ZELLO_USERNAME
       - ZELLO_PASSWORD
       - ZELLO_CHANNEL=${ZELLO_CHANNEL_1}
-      - UDP_PORT=9123 # Unique port for first stream
+      - ZELLO_WORK_ACCOUNT
+      - UDP_PORT=9123     # Unique port for first stream
+      - INPUT_RATE=16000
+      - ZELLO_RATE=16000
       - AUDIO_THRESHOLD
-      - SILENCE_SETTING
+      - SILENCE_SETTING   # Synchronized with master variable
+    healthcheck:
+      disable: true
+    labels:
+      io.balena.features.dbus: '1'
 
-  # Service for the Second Frequency
   zellostream_2:
     build:
       context: .
@@ -49,13 +63,22 @@ services:
     depends_on:
       - trunk-recorder
     network_mode: host
+    volumes:
+      - data:/data
     environment:
       - ZELLO_USERNAME
       - ZELLO_PASSWORD
       - ZELLO_CHANNEL=${ZELLO_CHANNEL_2}
-      - UDP_PORT=9124 # Unique port for second stream
+      - ZELLO_WORK_ACCOUNT
+      - UDP_PORT=9124     # Unique port for second stream
+      - INPUT_RATE=16000
+      - ZELLO_RATE=16000
       - AUDIO_THRESHOLD
-      - SILENCE_SETTING
+      - SILENCE_SETTING   # Synchronized with master variable
+    healthcheck:
+      disable: true
+    labels:
+      io.balena.features.dbus: '1'
 
 volumes:
   data:
