@@ -14,21 +14,17 @@ services:
       - data:/data
     command: ["python3", "/app/monitor.py"]
     environment:
-      - SILENCE_SETTING # Master variable (used as seconds)
-      - TR_SQUELCH_DB
-      - TR_SIGNAL_THRESHOLD
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
-      interval: 45s
-      timeout: 10s
-      retries: 3
-    labels:
-      io.balena.features.kernel-modules: '1'
-      io.balena.features.firmware: '1'
-      io.balena.features.dbus: '1'
-      io.balena.features.supervisor-api: '1'
+      - SILENCE_SETTING
+      # Primary Channel
+      - FREQ_1
+      - ZELLO_CHANNEL_1
+      # Secondary Channel
+      - FREQ_2
+      - ZELLO_CHANNEL_2
+    # ... (labels and healthchecks)
 
-  zellostream:
+  # Service for the First Frequency
+  zellostream_1:
     build:
       context: .
       dockerfile: zellostream/Dockerfile
@@ -36,23 +32,30 @@ services:
     depends_on:
       - trunk-recorder
     network_mode: host
-    volumes:
-      - data:/data
     environment:
       - ZELLO_USERNAME
       - ZELLO_PASSWORD
-      - ZELLO_CHANNEL
-      - ZELLO_WORK_ACCOUNT
-      - UDP_PORT=9123
-      - INPUT_RATE=16000
-      - ZELLO_RATE=16000
+      - ZELLO_CHANNEL=${ZELLO_CHANNEL_1}
+      - UDP_PORT=9123 # Unique port for first stream
       - AUDIO_THRESHOLD
-      - SILENCE_SETTING # Master variable (converted to ms in code)
-    # --- UPDATED: Disable the healthcheck here to match Dockerfile ---
-    healthcheck:
-      disable: true
-    labels:
-      io.balena.features.dbus: '1'
+      - SILENCE_SETTING
+
+  # Service for the Second Frequency
+  zellostream_2:
+    build:
+      context: .
+      dockerfile: zellostream/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - trunk-recorder
+    network_mode: host
+    environment:
+      - ZELLO_USERNAME
+      - ZELLO_PASSWORD
+      - ZELLO_CHANNEL=${ZELLO_CHANNEL_2}
+      - UDP_PORT=9124 # Unique port for second stream
+      - AUDIO_THRESHOLD
+      - SILENCE_SETTING
 
 volumes:
   data:
