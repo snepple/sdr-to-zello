@@ -27,6 +27,7 @@ def apply_silence_to_config():
             with open(CONFIG_PATH, 'r') as f:
                 config = json.load(f)
             
+            # Update voxSilenceTime in the systems section for both frequencies
             if "systems" in config:
                 for system in config["systems"]:
                     system["voxSilenceTime"] = float(SILENCE_VAL)
@@ -36,9 +37,7 @@ def apply_silence_to_config():
             print(f"✅ trunk-recorder updated: voxSilenceTime set to {SILENCE_VAL}s")
 
             # 2. Sync zellostream (Milliseconds)
-            # We calculate the MS value here. 
-            # Note: For the changes to take full effect in the other container, 
-            # ensure VOX_SILENCE_MS is not hardcoded in your docker-compose environment.
+            # We calculate the MS value here for the streaming services to inherit
             vox_ms = int(float(SILENCE_VAL) * 1000)
             os.environ["VOX_SILENCE_MS"] = str(vox_ms)
             print(f"✅ zellostream sync prepared: VOX_SILENCE_MS set to {vox_ms}ms")
