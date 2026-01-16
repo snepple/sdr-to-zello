@@ -1,173 +1,60 @@
-# SDR to Zello Bridge
+# SDR-to-Zello (Dual-Channel-v2)
 
-This project provides a two-service Docker stack that captures SDR audio via Trunk Recorder and streams it to Zello channels using ZelloStream.
+This branch of the `sdr-to-zello` project is designed to monitor up to two independent radio frequencies simultaneously using a single RTL-SDR device. Each frequency is streamed to its own dedicated Zello channel.
 
-## Architecture
+## 🚀 Key Features
+- **Dual-Channel Support**: Monitor two separate frequencies with independent Zello streams.
+- **Unified Silence Sync**: Uses a single `SILENCE_SETTING` to keep the recorder and streamer perfectly timed, preventing audio clipping.
+- **Automatic Centering**: Automatically calculates the optimal SDR center frequency based on your monitored frequencies.
+- **Bandwidth Protection**: Validates that your frequencies are close enough together for the SDR hardware to hear both.
 
-- **trunk-recorder**: Captures SDR audio and publishes raw PCM via UDP port 9123 using the SimpleStream plugin
-- **zellostream**: Ingests UDP audio and streams it to a Zello channel with voice activation (VOX)
+---
 
-## Quick Start
+## 📋 Configuration (Environment Variables)
 
-### Prerequisites
+The system is configured via environment variables in the BalenaCloud dashboard. The `monitor.py` script automatically applies these settings across the services.
 
-- Balena Cloud account and device
-- RTL-SDR dongle
-- Zello account with channel access
-- GitHub repository with Actions enabled
+### 1. Required Variables
+These must be set for the system to function.
 
-### Deployment
+| Variable | Description |
+| :--- | :--- |
+| `ZELLO_USERNAME` | Your Zello account username. |
+| `ZELLO_PASSWORD` | Your Zello account password. |
+| `FREQ_1` | Primary frequency in Hz (e.g., `158790000`). |
+| `ZELLO_CHANNEL_1` | The name of the Zello channel for `FREQ_1`. |
 
-#### Option 1: Automated GitHub Deployment (Recommended)
-1. Fork this repository
-2. Configure GitHub secrets (see [DEPLOYMENT.md](DEPLOYMENT.md))
-3. Configure Balena Service Variables in your dashboard
-4. Push to `main` branch - deployment happens automatically!
+### 2. Second Channel Variables
+Set these to enable the secondary stream.
 
-#### Option 2: Manual Balena Push
-1. Clone this repository
-2. Install Balena CLI: `npm install -g balena-cli`
-3. Login: `balena login`
-4. Push: `balena push sam27/md3zello`
+| Variable | Description |
+| :--- | :--- |
+| `FREQ_2` | Secondary frequency in Hz (e.g., `155000000`). |
+| `ZELLO_CHANNEL_2` | The name of the Zello channel for `FREQ_2`. |
 
-📖 **See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions**
+### 3. Tuning & Performance
+These variables have built-in defaults but can be overridden for better performance.
 
-## Configuration
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `SILENCE_SETTING` | `5` | Seconds to wait after speech ends before closing the stream (Prevents clipping). |
+| `AUDIO_THRESHOLD` | `150` | Volume sensitivity for Zello. Higher values ignore more background noise. |
+| `TR_SQUELCH_DB` | `-45` | Signal strength required to trigger the recorder (e.g., set to `-50` for weaker signals). |
+| `SDR_RATE` | `2400000` | Bandwidth of the SDR in Hz (2.4 MHz). |
+| `TR_SIGNAL_THRESHOLD` | `-55` | The minimum signal level to maintain an active recording. |
+| `ZELLO_WORK_ACCOUNT` | *None* | Set this if using a Zello Work / Enterprise network. |
 
-### Balena Service Variables
+---
 
-Set these environment variables in Balena dashboard (Device or Fleet level):
+## 🛠️ How It Works
 
-**Required:**
-- `ZELLO_USERNAME`: Your Zello username
-- `ZELLO_PASSWORD`: Your Zello password
-- `ZELLO_CHANNEL`: Target channel name (e.g., "Clinton")
-- `ZELLO_WORK_ACCOUNT`: Zello Work account name (or empty for consumer Zello)
+### Intelligent Centering
+The `configure.py` script automatically calculates the midpoint between `FREQ_1` and `FREQ_2` to ensure both channels are within the SDR's capture window. If only one frequency is provided, it centers directly on that frequency.
 
-**Optional (have defaults):**
-- `UDP_PORT=9123`: UDP port for audio pipeline
-- `INPUT_RATE=8000`: Audio input sample rate
-- `ZELLO_RATE=16000`: Zello output sample rate
-- `AUDIO_THRESHOLD=700`: VOX activation threshold
-- `VOX_SILENCE_MS=2000`: Silence time before stopping transmission
+### Bandwidth Safety
+If the distance (spread) between your two frequencies is too wide for your `SDR_RATE`, the system will throw an error and stop. For a standard 2.4 MHz rate, your frequencies should ideally be within ~2.0 MHz of each other.
 
-### Config Files
-
-The `configs/` directory contains:
-
-- `configs/trunk-recorder.json`: Trunk Recorder configuration (ready to use)
-- `configs/zello.json`: ZelloStream template (credentials injected via env vars)
-
-No manual config file editing needed - everything is handled via Balena Service Variables!
-
-## Troubleshooting
-
-### SDR Access Issues
-- Ensure `privileged: true` is set in docker-compose.yml
-- Check that `/dev/bus/usb` is properly mounted
-- DVB drivers are automatically unloaded by the entrypoint script
-
-### VOX Tuning
-- **No activation**: Lower `AUDIO_THRESHOLD` (try 500)
-- **False triggering**: Raise `AUDIO_THRESHOLD` (try 1000-1400) or increase `VOX_SILENCE_MS`
-
-### Audio Pipeline
-- Verify UDP traffic: `tcpdump -n -i any udp port 9123`
-- Check container logs for connection and authentication status
-
-## Verification Steps
-
-### 1. Check Device Health in Balena Dashboard
-- Both services should show "Running" status
-- Health checks should pass (green checkmarks)
-- No restart loops or error states
-
-### 2. Verify Hardware Detection
-```bash
-# In trunk-recorder container terminal (via Balena dashboard)
-lsusb | grep RTL2832U
-# Should show: Bus 001 Device 002: ID 0bda:2838 Realtek RTL2832U DVB-T
-
-# Check for kernel driver conflicts
-dmesg | grep dvb
-# Should be clean or show drivers unloaded
-```
-
-### 3. Monitor Trunk Recorder Logs
-Look for these key indicators:
-```
-[INFO] Using device #0: RTL2832U
-[INFO] Tuning to 154.12 MHz
-[INFO] SimpleStream plugin started on 127.0.0.1:9123
-```
-
-### 4. Verify UDP Audio Stream
-```bash
-# In zellostream container terminal
-ss -u -l | grep 9123
-# Should show: UNCONN  0  0  127.0.0.1:9123
-
-# Monitor UDP traffic (if tcpdump available)
-tcpdump -n -i any udp port 9123
-# Should show packets when radio activity occurs
-```
-
-### 5. Check ZelloStream Authentication
-Monitor zellostream logs for:
-```
-[INFO] Successfully authenticated with Zello
-[INFO] Connected to channel: Clinton
-[DEBUG] Audio threshold: 700, VOX silence: 2000ms
-```
-
-### 6. Test End-to-End Audio Flow
-1. **Radio Activity**: Wait for or trigger radio traffic on 154.13 MHz
-2. **Trunk Recorder**: Should log "Recording started" messages
-3. **UDP Stream**: Should see packets in tcpdump or netstat activity
-4. **ZelloStream**: Should log "Audio above threshold, transmitting"
-5. **Zello Channel**: Audio should appear in "Clinton" channel
-
-### Troubleshooting Checklist
-
-- [ ] RTL-SDR hardware detected by trunk-recorder
-- [ ] No "device busy" errors (DVB drivers properly unloaded)
-- [ ] Trunk Recorder tuned to correct frequency (154.120625 MHz center, 154.13 MHz channel)
-- [ ] SimpleStream plugin active on UDP port 9123
-- [ ] ZelloStream bound to UDP port 9123
-- [ ] ZelloStream successfully authenticated to Zello
-- [ ] Connected to correct Zello channel
-- [ ] VOX threshold appropriate (no false triggers or missed audio)
-- [ ] Audio quality good in Zello channel
-
-## Development
-
-### Building Images Locally
-
-```bash
-# Build trunk-recorder
-docker build -t trunk-recorder ./trunk-recorder
-
-# Build zellostream
-docker build -t zellostream ./zellostream
-```
-
-### Testing
-
-```bash
-# Start services
-docker-compose up
-
-# Check UDP listener
-docker-compose exec zellostream ss -u -l | grep 9123
-
-# Monitor UDP traffic
-sudo tcpdump -n -i any udp port 9123
-```
-
-## License
-
-This project integrates:
-- [Trunk Recorder](https://github.com/TrunkRecorder/trunk-recorder)
-- [ZelloStream](https://github.com/aaknitt/zellostream)
-
-Refer to their respective licenses for usage terms.
+### Synchronized Timing
+The `monitor.py` script ensures that the `SILENCE_SETTING` is converted correctly for both services:
+* **Trunk-Recorder**: Receives the value in seconds.
+* **ZelloStream**: Receives the value in milliseconds.
