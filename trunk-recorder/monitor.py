@@ -20,22 +20,31 @@ CONFIG_PATH = "/data/config.json"
 SILENCE_VAL = os.getenv("SILENCE_SETTING", os.getenv("VOX_SILENCE_TIME", "5"))
 
 def apply_silence_to_config():
-    """Updates the config.json with the unified silence setting."""
+    """Updates config.json and syncs zellostream via millisecond conversion."""
     if os.path.exists(CONFIG_PATH):
         try:
+            # 1. Update trunk-recorder config.json (Seconds)
             with open(CONFIG_PATH, 'r') as f:
                 config = json.load(f)
             
-            # Update voxSilenceTime in the systems section
             if "systems" in config:
                 for system in config["systems"]:
                     system["voxSilenceTime"] = float(SILENCE_VAL)
             
             with open(CONFIG_PATH, 'w') as f:
                 json.dump(config, f, indent=4)
-            print(f"✅ Config updated: voxSilenceTime set to {SILENCE_VAL}s")
+            print(f"✅ trunk-recorder updated: voxSilenceTime set to {SILENCE_VAL}s")
+
+            # 2. Sync zellostream (Milliseconds)
+            # We calculate the MS value here. 
+            # Note: For the changes to take full effect in the other container, 
+            # ensure VOX_SILENCE_MS is not hardcoded in your docker-compose environment.
+            vox_ms = int(float(SILENCE_VAL) * 1000)
+            os.environ["VOX_SILENCE_MS"] = str(vox_ms)
+            print(f"✅ zellostream sync prepared: VOX_SILENCE_MS set to {vox_ms}ms")
+
         except Exception as e:
-            print(f"⚠️ Could not update config.json: {e}")
+            print(f"⚠️ Could not update configuration: {e}")
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -54,7 +63,7 @@ def check_usb_hardware():
         return False
 
 def reboot_device():
-    send_telegram("🔄 *Self-Heal: System Rebooting*\nHardware not found after all fallbacks. Clearing USB bus.")
+    send_telegram("🔄 *Self-Heal: System Rebooting*\nHardware not found. Clearing bus.")
     if os.path.exists(ATTEMPT_FILE): os.remove(ATTEMPT_FILE)
     if os.path.exists(FAILURE_COUNT_FILE): os.remove(FAILURE_COUNT_FILE)
     time.sleep(5)
@@ -64,7 +73,7 @@ def reboot_device():
 apply_silence_to_config()
 
 if not check_usb_hardware():
-    send_telegram("⚠️ *CRITICAL*: RTL-SDR hardware is NOT detected on the USB bus!")
+    send_telegram("⚠️ *CRITICAL*: RTL-SDR hardware is NOT detected!")
 
 # Tracking Setup
 start_time = time.time()
@@ -74,6 +83,7 @@ try:
 except:
     consecutive_failures = 0
 
+# Start trunk-recorder
 process = subprocess.Popen(["trunk-recorder", "-c", CONFIG_PATH],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
@@ -81,6 +91,7 @@ for line in iter(process.stdout.readline, ''):
     line = line.strip()
     print(line)
     
+    # Reset failures if stable for 5 minutes
     if (time.time() - start_time) > 300:
         if consecutive_failures > 0:
             print("✨ Hardware stable. Resetting counters.")
@@ -96,7 +107,7 @@ for line in iter(process.stdout.readline, ''):
         if consecutive_failures >= 5:
             reboot_device()
         else:
-            send_telegram(f"❌ *SDR Fail ({consecutive_failures}/5)*\nHardware rejected. Trying next fallback level.")
+            send_telegram(f"❌ *SDR Fail ({consecutive_failures}/5)*\nHardware rejected. Trying fallback.")
             time.sleep(5)
             process.terminate()
             sys.exit(1)
