@@ -3,6 +3,7 @@ import sys
 import os
 import requests
 import time
+import json
 
 # --- CONFIGURATION ---
 TELEGRAM_TOKEN = "8581390939:AAGwYki7ENlLYNy6BT7DM8rn52XeXOqVvtw"
@@ -14,6 +15,28 @@ ATTEMPT_FILE = "/data/sdr_attempt_level"
 FAILURE_COUNT_FILE = "/data/consecutive_failures"
 CONFIG_PATH = "/data/config.json"
 
+# --- SYNC LOGIC ---
+# Get silence setting from Balena (default to 5 seconds if not found)
+SILENCE_VAL = os.getenv("SILENCE_SETTING", os.getenv("VOX_SILENCE_TIME", "5"))
+
+def apply_silence_to_config():
+    """Updates the config.json with the unified silence setting."""
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, 'r') as f:
+                config = json.load(f)
+            
+            # Update voxSilenceTime in the systems section
+            if "systems" in config:
+                for system in config["systems"]:
+                    system["voxSilenceTime"] = float(SILENCE_VAL)
+            
+            with open(CONFIG_PATH, 'w') as f:
+                json.dump(config, f, indent=4)
+            print(f"✅ Config updated: voxSilenceTime set to {SILENCE_VAL}s")
+        except Exception as e:
+            print(f"⚠️ Could not update config.json: {e}")
+
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": f"🚨 *{DEVICE_NAME}*\n{message}", "parse_mode": "Markdown"}
@@ -24,7 +47,6 @@ def check_usb_hardware():
     """Checks if any RTL-SDR is visible to the Linux kernel."""
     try:
         result = subprocess.run(['lsusb'], capture_output=True, text=True)
-        # 0bda:2838 is the standard ID for RTL2832U devices
         if "0bda:2838" not in result.stdout:
             return False
         return True
@@ -38,10 +60,11 @@ def reboot_device():
     time.sleep(5)
     os.system("curl -X POST --header 'Content-Type:application/json' $BALENA_SUPERVISOR_ADDRESS/v1/reboot?apikey=$BALENA_SUPERVISOR_API_KEY")
 
-# --- INITIAL HARDWARE CHECK ---
+# --- INITIAL SETUP ---
+apply_silence_to_config()
+
 if not check_usb_hardware():
-    send_telegram("⚠️ *CRITICAL*: RTL-SDR hardware is NOT detected on the USB bus! Please check physical connection.")
-    # We still try to run to see if it's a transient issue, but we've alerted the user.
+    send_telegram("⚠️ *CRITICAL*: RTL-SDR hardware is NOT detected on the USB bus!")
 
 # Tracking Setup
 start_time = time.time()
