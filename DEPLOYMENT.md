@@ -15,9 +15,9 @@ Set these environment variables in the Balena dashboard. The services automatica
 
 | Variable | Requirement | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `ZELLO_USERNAME` | **Mandatory** | None | Username for the primary Zello account. |
-| `ZELLO_PASSWORD` | **Mandatory** | None | Password for the primary Zello account. |
-| `ZELLO_CHANNEL` | **Mandatory** | None | Primary Zello channel name. |
+| `ZELLO_USERNAME_1` | **Mandatory** | None | Username for the primary Zello account. |
+| `ZELLO_PASSWORD_1` | **Mandatory** | None | Password for the primary Zello account. |
+| `ZELLO_CHANNEL_1` | **Mandatory** | None | Primary Zello channel name. |
 | `ZELLO_USERNAME_2` | Optional | None | Username for the secondary Zello account. |
 | `ZELLO_PASSWORD_2` | Optional | None | Password for the secondary Zello account. |
 | `ZELLO_CHANNEL_2` | Optional | None | Secondary Zello channel name. |
