@@ -3,9 +3,7 @@ import time
 import sys
 
 def main():
-    print("🚀 DEPLOYMENT VERIFIED: Dual-Channel Engine Starting...")
-    
-    # Get credentials from Balena Dashboard variables passed by run.py
+    print("🚀 DEPLOYMENT VERIFIED: Using local fixed version.")
     username = os.getenv("ZELLO_USERNAME")
     password = os.getenv("ZELLO_PASSWORD")
     channel = os.getenv("ZELLO_CHANNEL")
@@ -15,11 +13,9 @@ def main():
         print(f"❌ ERROR: Missing Zello credentials for Port {port}")
         sys.exit(1)
 
-    print(f"✅ Zello Engine Active: {username} -> {channel} (UDP:{port})")
-    
+    print(f"✅ Active: {username} on UDP:{port}")
     try:
         while True:
-            # Engine stays alive to wait for audio from trunk-recorder
             time.sleep(60)
     except KeyboardInterrupt:
         sys.exit(0)
