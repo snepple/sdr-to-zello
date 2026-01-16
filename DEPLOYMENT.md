@@ -1,182 +1,52 @@
-# Deployment Guide
+# SDR to Zello Bridge (Dual Channel v2)
 
-## GitHub Secrets Setup
+This project provides a two-service Docker stack that captures SDR audio via Trunk Recorder and streams it to two independent Zello channels using separate credentials and frequencies for each.
 
-To enable automated deployment to Balena, configure the following secrets in your GitHub repository:
+## Architecture
 
-### Required Secrets
+- **trunk-recorder**: Captures SDR audio from two different frequencies and publishes independent raw PCM streams via UDP ports 9123 and 9124.
+- **zellostream**: Ingests multiple UDP audio streams and routes them to specific Zello accounts using voice activation (VOX).
 
-1. **Navigate to GitHub Repository Settings**
-   - Go to your repository on GitHub
-   - Click on "Settings" tab
-   - Select "Secrets and variables" → "Actions"
+## Configuration
 
-2. **Add Required Secrets**
-   - Click "New repository secret"
-   - Add the following secrets:
+Set these environment variables in the Balena dashboard. The services automatically inject these into the system configuration at startup.
 
-   ```
-   Name: BALENA_API_TOKEN
-   Value: 
-   ```
+### Zello Streaming Variables
 
-### Balena Fleet Configuration
+| Variable | Requirement | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `ZELLO_USERNAME` | **Mandatory** | None | Username for the primary Zello account. |
+| `ZELLO_PASSWORD` | **Mandatory** | None | Password for the primary Zello account. |
+| `ZELLO_CHANNEL` | **Mandatory** | None | Primary Zello channel name. |
+| `ZELLO_USERNAME_2` | Optional | None | Username for the secondary Zello account. |
+| `ZELLO_PASSWORD_2` | Optional | None | Password for the secondary Zello account. |
+| `ZELLO_CHANNEL_2` | Optional | None | Secondary Zello channel name. |
+| `ZELLO_WORK_ACCOUNT`| Optional | None | Zello Work network name (leave empty for consumer accounts). |
+| `AUDIO_THRESHOLD` | Optional | `700` | VOX energy level to trigger transmission (Increase to reduce sensitivity). |
+| `MIN_DURATION_MS` | Optional | `0` | Ignores transmissions shorter than this value (filters static "clicks"). |
 
-- **Fleet Name**: `sam27/md3zello`
-- **Target Device**: Raspberry Pi (configured in Balena dashboard)
+### Trunk Recorder & Hardware Variables
 
-## Balena Service Variables
-
-Configure these environment variables in your Balena dashboard at the Fleet or Device level:
-
-### Required Variables
-
-```
-ZELLO_USERNAME=
-ZELLO_PASSWORD=
-ZELLO_CHANNEL=
-ZELLO_WORK_ACCOUNT=
-```
-
-### Optional Variables (defaults provided)
-
-```
-UDP_PORT=9123
-INPUT_RATE=16000
-ZELLO_RATE=16000
-AUDIO_THRESHOLD=700
-VOX_SILENCE_MS=2000
-# Zello VOX can also be set directly in seconds (takes precedence over VOX_SILENCE_MS)
-VOX_SILENCE_SECONDS=
-
-# Trunk Recorder tuning overrides (Hz / dB)
-TR_CENTER_HZ=154120625
-TR_SAMPLE_RATE=2048000
-TR_ERROR_HZ=9375
-TR_GAIN_DB=40
-TR_CHANNELS_HZ=154130000
-TR_SQUELCH_DB=-50
-TR_PLUGIN_PORT=9123
-TR_PLUGIN_ADDRESS=127.0.0.1
-TR_PLUGIN_TGID=0
-TR_PLUGIN_SEND_JSON=false
-```
-
-### SDR Gain
-
-- The default config sets the RTL-SDR gain to `40` dB (`configs/trunk-recorder.json`).
-- Adjust this value to match your hardware/noise floor; use tools like GQRX or `rtl_test -t` to determine the best setting.
-
-## Deployment Methods
-
-### Automatic Deployment
-- Push to `main` branch triggers automatic deployment
-- Creates live release (devices update automatically)
-
-### Manual Deployment
-1. Go to "Actions" tab in GitHub repository
-2. Select "Deploy to Balena" workflow
-3. Click "Run workflow"
-4. Choose options:
-   - **Branch**: main
-   - **Create draft release**: Check to create draft (for testing)
-
-### Direct Balena Push (Alternative)
-```bash
-# Install Balena CLI
-npm install -g balena-cli
-
-# Login to Balena
-balena login
-
-# Push to fleet
-balena push sam27/md3zello
-```
-
-## Verification Steps
-
-### 1. Check Balena Dashboard
-- **Release Status**: Verify release is created and downloaded to device
-- **Service Status**: Both `trunk-recorder` and `zellostream` should show "Running"
-- **Health Checks**: Green checkmarks for both services
-- **Device Status**: Online and accessible
-
-### 2. Verify Audio Pipeline
-Follow these steps in order to confirm end-to-end functionality:
-
-#### Step 2.1: Check RTL-SDR Hardware
-```bash
-# Access trunk-recorder container terminal via Balena dashboard
-lsusb | grep RTL2832U
-# Expected: Bus 001 Device 002: ID 0bda:2838 Realtek RTL2832U DVB-T
-```
-
-#### Step 2.2: Monitor Trunk Recorder Logs
-Look for these success indicators:
-```
-[INFO] Using device #0: RTL2832U
-[INFO] Tuning to 154.120625 MHz
-[INFO] SimpleStream plugin started on 127.0.0.1:9123
-```
-
-#### Step 2.3: Confirm SimpleStream Plugin
-```bash
-# Inside trunk-recorder container
-ls /usr/local/lib/trunk-recorder/plugins | grep simplestream
-# Expected: libsimplestream.so
-```
-
-#### Step 2.4: Verify UDP Stream
-```bash
-# In zellostream container terminal
-ss -u -l | grep 9123
-# Expected: UNCONN  0  0  127.0.0.1:9123
-```
-
-#### Step 2.5: Check ZelloStream Authentication
-Monitor logs for:
-```
-[INFO] Successfully authenticated with Zello
-[INFO] Connected to channel: Clinton
-[DEBUG] Audio threshold: 700, VOX silence: 2000ms
-```
-
-#### Step 2.6: Test Live Audio Flow
-1. Wait for radio activity on 154.13 MHz (Clinton Fire frequency)
-2. Trunk Recorder should log activity and start streaming
-3. ZelloStream should detect audio above threshold (700)
-4. Audio should appear in Zello channel "Clinton"
-
-### 3. Success Criteria
-- ✅ RTL-SDR hardware detected and accessible
-- ✅ Trunk Recorder tuned to correct frequency
-- ✅ SimpleStream plugin active on UDP port 9123
-- ✅ ZelloStream authenticated to Zello Work account "md3md3"
-- ✅ Connected to Zello channel "Clinton"
-- ✅ Audio streaming from radio to Zello channel
-- ✅ VOX working properly (no false triggers, catches all audio)
+| Variable | Requirement | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `FREQ_1` | **Mandatory** | None | The primary frequency (Hz) to monitor (e.g., `155115000`). |
+| `FREQ_2` | Optional | None | The secondary frequency (Hz) to monitor (e.g., `155225000`). |
+| `SDR_RATE` | Optional | `2400000` | Sample rate for the SDR hardware. |
+| `TR_GAIN_DB` | Optional | `45` | RF gain for the RTL-SDR dongle. |
+| `TR_SQUELCH_DB` | Optional | `-45` | Squelch threshold for analog audio (Lower = more sensitive). |
+| `SYSTEM_TYPE` | Optional | `conventional` | Radio system type (`analog` translates to `conventional`). |
+| `TR_CENTER_HZ` | Optional | Auto | Manual override for the SDR center frequency. |
+| `SDR_SERIAL` | Optional | `00000001`| Serial number of the specific SDR device to use. |
 
 ## Troubleshooting
 
-### Build Failures
-- Check GitHub Actions logs
-- Verify all secrets are set correctly
-- Ensure Balena API token has fleet access
+### VOX Tuning
+- **Constant Transmitting**: Increase `AUDIO_THRESHOLD` (try 1000-1500) or set `MIN_DURATION_MS` to 300 to filter static bursts.
+- **Chopped Audio**: Decrease `AUDIO_THRESHOLD` (try 400-500) so quieter voices trigger the stream.
 
-### Deployment Issues
-- Check Balena dashboard for error messages
-- Verify device is online and accessible
-- Review service variables configuration
+### Hardware & Logs
+- **Frequency Spread Error**: If `FREQ_1` and `FREQ_2` are more than 2.1 MHz apart (at default 2.4M rate), the SDR cannot monitor both simultaneously.
+- **Center Frequency**: By default, the script sets the center frequency exactly between your two configured frequencies.
 
-### Audio Issues
-- Verify RTL-SDR hardware detection
-- Check UDP port binding
-- Review Zello authentication logs
-- Test VOX threshold settings
-
-## Security Notes
-
-- API tokens and credentials are stored securely in GitHub secrets
-- No sensitive data is committed to the repository
-- Environment variables are injected at runtime via Balena
-- Config files contain only placeholder values
+## License
+Refer to the respective licenses for [Trunk Recorder](https://github.com/TrunkRecorder/trunk-recorder) and [ZelloStream](https://github.com/aaknitt/zellostream).
