@@ -167,4 +167,3 @@ except Exception as e:
     set_error_state(True, "Launcher Error")
     send_telegram(f"🔥 *Launcher Error*\n```{str(e)}```")
     sys.exit(1)
-``` [cite: 17, 19]
