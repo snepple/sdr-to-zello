@@ -14,7 +14,7 @@ services:
       - data:/data
     command: ["python3", "/app/monitor.py"]
     environment:
-      - SILENCE_SETTING
+      - SILENCE_SETTING # Master variable (used as seconds)
       - TR_SQUELCH_DB
       - TR_SIGNAL_THRESHOLD
       - FREQ_1
@@ -50,6 +50,7 @@ services:
       - ZELLO_RATE=16000
       - AUDIO_THRESHOLD
       - SILENCE_SETTING
+      - MIN_DURATION_MS # Optional: Filters out static shorter than this value (ms)
     healthcheck:
       disable: true
     labels:
@@ -75,6 +76,7 @@ services:
       - ZELLO_RATE=16000
       - AUDIO_THRESHOLD
       - SILENCE_SETTING
+      - MIN_DURATION_MS # Optional: Filters out static shorter than this value (ms)
     healthcheck:
       disable: true
     labels:
