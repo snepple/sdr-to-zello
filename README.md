@@ -1,44 +1,53 @@
 # SDR to Zello Bridge (Dual Channel v2)
 
-This project provides a two-service Docker stack that captures SDR audio via Trunk Recorder and streams it to multiple Zello channels using separate credentials for each.
+[cite_start]This project provides a two-service Docker stack that captures SDR audio via Trunk Recorder and streams it to two independent Zello channels using separate credentials and frequencies for each. [cite: 17, 19]
 
 ## Architecture
 
-- **trunk-recorder**: Captures SDR audio and publishes raw PCM via UDP port 9123 using the SimpleStream plugin.
-- **zellostream**: Ingests UDP audio and streams it to Zello channels with voice activation (VOX) and independent account support.
+- [cite_start]**trunk-recorder**: Captures SDR audio from two different frequencies and publishes independent raw PCM streams via UDP. [cite: 19]
+- [cite_start]**zellostream**: Ingests multiple UDP audio streams and routes them to specific Zello accounts using voice activation (VOX). [cite: 17, 19]
 
 ## Configuration
 
-### Balena Service Variables
+Set these environment variables in the Balena dashboard. [cite_start]The services automatically inject these into the system configuration at startup. [cite: 17, 7]
 
-Set these environment variables in the Balena dashboard. The `zellostream` service injects these into the configuration at startup.
+### Zello Streaming Variables
 
-#### Primary Channel (Required)
-- `ZELLO_USERNAME`: Username for the first Zello account.
-- `ZELLO_PASSWORD`: Password for the first Zello account.
-- `ZELLO_CHANNEL`: Target name for the first channel.
+| Variable | Requirement | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `ZELLO_USERNAME` | **Mandatory** | None | [cite_start]Username for the primary Zello account. [cite: 17] |
+| `ZELLO_PASSWORD` | **Mandatory** | None | [cite_start]Password for the primary Zello account. [cite: 17] |
+| `ZELLO_CHANNEL` | **Mandatory** | None | [cite_start]Primary Zello channel name. [cite: 17] |
+| `ZELLO_USERNAME_2` | Optional | None | [cite_start]Username for the secondary Zello account. [cite: 17] |
+| `ZELLO_PASSWORD_2` | Optional | None | [cite_start]Password for the secondary Zello account. [cite: 17] |
+| `ZELLO_CHANNEL_2` | Optional | None | [cite_start]Secondary Zello channel name. [cite: 17] |
+| `ZELLO_WORK_ACCOUNT`| Optional | None | [cite_start]Zello Work network name (leave empty for consumer accounts). [cite: 17] |
+| `AUDIO_THRESHOLD` | Optional | `700` | [cite_start]VOX energy level to trigger transmission (Increase to reduce sensitivity). [cite: 17] |
+| `MIN_DURATION_MS` | Optional | `0` | [cite_start]Ignores transmissions shorter than this value (filters static "clicks"). [cite: 17] |
 
-#### Secondary Channel (Optional)
-- `ZELLO_USERNAME_2`: Username for the second Zello account.
-- `ZELLO_PASSWORD_2`: Password for the second Zello account.
-- `ZELLO_CHANNEL_2`: Target name for the second channel.
+### Trunk Recorder & Hardware Variables
 
-#### Global Settings (Optional Defaults)
-- `ZELLO_WORK_ACCOUNT`: Zello Work network name (leave empty for consumer Zello).
-- `UDP_PORT=9123`: UDP port for audio pipeline.
-- `INPUT_RATE=16000`: Audio input sample rate.
-- `ZELLO_RATE=16000`: Zello output sample rate.
-- `AUDIO_THRESHOLD=700`: VOX activation energy threshold (increase to reduce sensitivity).
-- `MIN_DURATION_MS=0`: Filters out transmissions shorter than this value (useful for ignoring static "clicks").
+| Variable | Requirement | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `CENTER_FREQ` | **Mandatory** | None | The center frequency (MHz) for the SDR hardware (e.g., `155.115`). |
+| `TALKGROUP_FREQ` | **Mandatory** | None | The primary frequency (MHz) to monitor for the first Zello channel. |
+| `TALKGROUP_FREQ_2` | Optional | None | The secondary frequency (MHz) to monitor for the second Zello channel. |
+| `SDR_GAIN` | Optional | `40` | RF gain for the RTL-SDR dongle (typical max is 49.6). |
+| `SDR_PPM` | Optional | `0` | Frequency correction (PPM) for hardware drift. |
+| `SQUELCH` | Optional | `-40` | Signal level threshold for analog audio (Lower = more sensitive). |
+| `SYSTEM_TYPE` | Optional | `analog` | Defines the radio system type (`analog` or `p25`). |
+| `TALKGROUP_ID` | Optional | `1` | The specific talkgroup ID to monitor for the primary frequency. |
+| `TALKGROUP_ID_2` | Optional | `2` | The specific talkgroup ID to monitor for the secondary frequency. |
 
 ## Troubleshooting
 
 ### VOX Tuning
-- **No activation**: Lower `AUDIO_THRESHOLD` (e.g., try 300-500).
-- **False triggering**: Raise `AUDIO_THRESHOLD` (e.g., try 1000+) or set `MIN_DURATION_MS` to 300 to ignore short bursts of static.
+- [cite_start]**Constant Transmitting**: Increase `AUDIO_THRESHOLD` (try 1000-1500) or set `MIN_DURATION_MS` to 300 to filter static bursts. [cite: 17, 19]
+- [cite_start]**Chopped Audio**: Decrease `AUDIO_THRESHOLD` (try 400-500) so quieter voices trigger the stream. [cite: 19]
 
-### Verification
-You can monitor the authentication status and connection of both accounts in the `zellostream` container logs. Each account will report its connection status independently.
-```bash
-# Check ZelloStream logs
-balena logs <device-uuid> --service zellostream
+### Hardware & Logs
+- **No Signal**: Check `SDR_PPM` correction or ensure `CENTER_FREQ` is within 1MHz of both monitored frequencies.
+- [cite_start]**Verify Connection**: Check Balena logs to confirm both Zello accounts have authenticated successfully. [cite: 19]
+
+## License
+[cite_start]Refer to the respective licenses for [Trunk Recorder](https://github.com/TrunkRecorder/trunk-recorder) and [ZelloStream](https://github.com/aaknitt/zellostream). [cite: 19]
