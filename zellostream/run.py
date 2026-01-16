@@ -84,6 +84,16 @@ set_if("INPUT_RATE",         ["audio_input_sample_rate"], int)
 set_if("ZELLO_RATE",         ["zello_sample_rate"], int)
 set_if("AUDIO_THRESHOLD",    ["audio_threshold"], int)
 
+# --- MIN DURATION (STATIC FILTER) LOGIC ---
+# Default to 0 (off) if variable is not provided
+min_duration = os.getenv("MIN_DURATION_MS")
+if min_duration:
+    cfg["min_duration_ms"] = int(min_duration)
+    logging.info(f"✅ Static Filter Active: Ignoring transmissions shorter than {min_duration}ms")
+else:
+    cfg["min_duration_ms"] = 0
+    logging.info("ℹ️ Static Filter (MIN_DURATION_MS) is disabled.")
+
 with open(cfg_path, "w") as f:
     json.dump(cfg, f, indent=2)
 
