@@ -13,15 +13,16 @@ def update_config():
         config = {"sources": [], "systems": [], "captureDir": "/data"}
 
     # 1. Fetch Frequencies from Environment
-    f1_raw = os.getenv('FREQ_1')
-    f2_raw = os.getenv('FREQ_2')
+    # Support both naming conventions from documentation and code
+    f1_raw = os.getenv('FREQ_1') or os.getenv('TALKGROUP_FREQ')
+    f2_raw = os.getenv('FREQ_2') or os.getenv('TALKGROUP_FREQ_2')
     
     active_freqs = []
     if f1_raw: active_freqs.append(int(f1_raw))
     if f2_raw: active_freqs.append(int(f2_raw))
 
     if not active_freqs:
-        print("❌ Error: No frequencies configured in FREQ_1 or FREQ_2.")
+        print("❌ Error: No frequencies configured in FREQ_1/2 or TALKGROUP_FREQ/2.")
         return
 
     # 2. SDR Validation and Center Frequency Calculation
@@ -39,7 +40,10 @@ def update_config():
 
     # 3. Define Systems
     systems = []
-    system_type = 'conventional' if os.getenv('SYSTEM_TYPE', 'conventional').lower() == 'analog' else os.getenv('SYSTEM_TYPE', 'conventional')
+    # Simplified system type logic to ensure compatibility with Trunk Recorder
+    system_type = os.getenv('SYSTEM_TYPE', 'conventional').lower()
+    if system_type == 'analog':
+        system_type = 'conventional'
     
     # Global fallback squelch
     global_squelch = os.getenv('TR_SQUELCH_DB', '-45')
@@ -51,7 +55,7 @@ def update_config():
             "shortName": "sys_1",
             "type": system_type,
             "control_channels": [int(f1_raw)],
-            "modulation": os.getenv('MODULATION', 'fm'),
+            "modulation": os.getenv('MODULATION', 'nfm'), # Default to Narrowband FM
             "squelch": sq1,
             "audioStreaming": "true",
             "streamAddress": "127.0.0.1",
@@ -65,7 +69,7 @@ def update_config():
             "shortName": "sys_2",
             "type": system_type,
             "control_channels": [int(f2_raw)],
-            "modulation": os.getenv('MODULATION', 'fm'),
+            "modulation": os.getenv('MODULATION', 'nfm'), # Default to Narrowband FM
             "squelch": sq2,
             "audioStreaming": "true",
             "streamAddress": "127.0.0.1",
