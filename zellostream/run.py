@@ -1,13 +1,15 @@
 import json, math, os, shutil, subprocess, sys, logging, traceback, requests, time, datetime, fcntl
 from collections import deque
 
-# Initialize logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# --- LOGGING REDUCTION ---
+# Set to INFO level to reduce log verbosity as requested
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- FIX: Make config path unique per instance to prevent overwrite collisions ---
+# --- DUAL CHANNEL PROTECTION ---
+# Uses the UDP_PORT to ensure unique configuration files for each service instance
 udp_port = os.getenv("UDP_PORT", "default")
 cfg_path = f"/data/configs/zello_{udp_port}.json"
-# -------------------------------------------------------------------------------
+# -------------------------------
 
 link_path = "/app/config.json"
 BOOT_FLAG = "/dev/shm/zello_stagger_done" 
@@ -15,8 +17,9 @@ LAST_429_ALERT_FILE = "/data/last_429_alert.txt"
 ERROR_STATE_FILE = "/data/error_state.json"
 
 # --- TELEGRAM CONFIGURATION ---
-TELEGRAM_TOKEN = "8581390939:AAGwYki7ENlLYNy6BT7DM8rn52XeXOqVvtw"
-CHAT_ID = "8322536156"
+# Retrieved from environment variables instead of being hard-coded
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 DEVICE_NAME = os.getenv("BALENA_DEVICE_NAME_AT_INIT", "Unknown-Pi")
 
 # --- ERROR STATE TRACKING ---
@@ -43,6 +46,11 @@ def should_send_alert(file_path, interval_seconds):
     return True
 
 def send_telegram(message, silent=False, alert_type=None, is_resolution=False):
+    # Safety check: skip API call if Telegram variables are not configured
+    if not TELEGRAM_TOKEN or not CHAT_ID:
+        logging.info(f"Telegram alert (skipped - config missing): {message}")
+        return
+
     if alert_type == "429" and not should_send_alert(LAST_429_ALERT_FILE, 3600):
         logging.info("Suppressing 429 Telegram alert (rate limit).")
         return
@@ -63,7 +71,7 @@ def send_telegram(message, silent=False, alert_type=None, is_resolution=False):
 # --- CONFIGURATION LOGIC ---
 os.makedirs("/data/configs", exist_ok=True)
 
-# Copy default config if the target specific config doesn't exist
+# Copy default config if the target-specific config doesn't exist
 if not os.path.exists(cfg_path):
     logging.info(f"Copying default zello config to {cfg_path}")
     shutil.copy("/app/default-config.json", cfg_path)
@@ -81,24 +89,20 @@ def set_if(env, keys, cast=None):
     for k in keys[:-1]: d = d.setdefault(k, {})
     d[keys[-1]] = v
 
-# Primary Channel Credentials
+# Credential and environment mapping
 set_if("ZELLO_USERNAME",     ["username"])
 set_if("ZELLO_PASSWORD",     ["password"])
 set_if("ZELLO_CHANNEL",      ["zello_channel"])
-
-# Secondary Channel Credentials
 set_if("ZELLO_USERNAME_2",   ["username_2"])
 set_if("ZELLO_PASSWORD_2",   ["password_2"])
 set_if("ZELLO_CHANNEL_2",    ["zello_channel_2"])
-
-# Global System Settings
 set_if("ZELLO_WORK_ACCOUNT", ["zello_work_account_name"])
 set_if("UDP_PORT",           ["UDP_PORT"], int)
 set_if("INPUT_RATE",         ["audio_input_sample_rate"], int)
 set_if("ZELLO_RATE",         ["zello_sample_rate"], int)
 set_if("AUDIO_THRESHOLD",    ["audio_threshold"], int)
 
-# --- MIN DURATION (STATIC FILTER) LOGIC ---
+# Static Filter Logic
 min_duration = os.getenv("MIN_DURATION_MS")
 if min_duration:
     cfg["min_duration_ms"] = int(min_duration)
@@ -134,7 +138,7 @@ try:
 
     # Resolution notification
     if state["in_error"]:
-        res_msg = f"The radio gateway has successfully recovered after the previous error ({state['last_error']}). Audio streaming is active."
+        res_msg = f"The radio gateway has recovered after the previous error ({state['last_error']}). Streaming is active."
         send_telegram(res_msg, is_resolution=True)
         set_error_state(False)
 
