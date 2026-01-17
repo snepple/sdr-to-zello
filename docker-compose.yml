@@ -14,7 +14,6 @@ services:
       - data:/data
     command: ["python3", "/app/monitor.py"]
     environment:
-      # Hardware and Frequency Settings
       - FREQ_1
       - FREQ_2
       - TALKGROUP_FREQ
@@ -25,7 +24,6 @@ services:
       - TR_CENTER_HZ
       - SYSTEM_TYPE
       - MODULATION
-      # Squelch and Silence Settings
       - TR_SQUELCH_DB
       - SQUELCH_1
       - SQUELCH_2
@@ -36,11 +34,6 @@ services:
       interval: 45s
       timeout: 10s
       retries: 3
-    labels:
-      io.balena.features.kernel-modules: '1'
-      io.balena.features.firmware: '1'
-      io.balena.features.dbus: '1'
-      io.balena.features.supervisor-api: '1'
 
   zellostream_1:
     build:
@@ -53,10 +46,9 @@ services:
     volumes:
       - data:/data
     environment:
-      # Mapping Balena variables to internal container variables
-      - ZELLO_USERNAME=ZELLO_USERNAME_1
-      - ZELLO_PASSWORD=ZELLO_PASSWORD_1
-      - ZELLO_CHANNEL=ZELLO_CHANNEL_1
+      - ZELLO_USERNAME=${ZELLO_USERNAME_1}
+      - ZELLO_PASSWORD=${ZELLO_PASSWORD_1}
+      - ZELLO_CHANNEL=${ZELLO_CHANNEL_1}
       - ZELLO_WORK_ACCOUNT
       - UDP_PORT=9125
       - INPUT_RATE=16000
@@ -66,8 +58,6 @@ services:
       - MIN_DURATION_MS
     healthcheck:
       disable: true
-    labels:
-      io.balena.features.dbus: '1'
 
   zellostream_2:
     build:
@@ -80,10 +70,9 @@ services:
     volumes:
       - data:/data
     environment:
-      # Mapping Balena variables to internal container variables
-      - ZELLO_USERNAME=ZELLO_USERNAME_2
-      - ZELLO_PASSWORD=ZELLO_PASSWORD_2
-      - ZELLO_CHANNEL=ZELLO_CHANNEL_2
+      - ZELLO_USERNAME=${ZELLO_USERNAME_2}
+      - ZELLO_PASSWORD=${ZELLO_PASSWORD_2}
+      - ZELLO_CHANNEL=${ZELLO_CHANNEL_2}
       - ZELLO_WORK_ACCOUNT
       - UDP_PORT=9126
       - INPUT_RATE=16000
@@ -93,8 +82,6 @@ services:
       - MIN_DURATION_MS
     healthcheck:
       disable: true
-    labels:
-      io.balena.features.dbus: '1'
 
 volumes:
   data:
