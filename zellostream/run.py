@@ -1,8 +1,9 @@
 import json, math, os, shutil, subprocess, sys, logging, traceback, requests, time, datetime, fcntl
 from collections import deque
 
-# Initialize logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# --- LOGGING REDUCTION ---
+# Initialized at INFO level to reduce bug logging verbosity as requested
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 cfg_path = "/data/configs/zello.json"
 link_path = "/app/config.json"
