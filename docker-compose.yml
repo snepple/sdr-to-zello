@@ -28,7 +28,8 @@ services:
       - SQUELCH_1
       - SQUELCH_2
       - SILENCE_SETTING
-      - VOX_SILENCE_TIME
+      - TELEGRAM_TOKEN
+      - TELEGRAM_CHAT_ID
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
       interval: 45s
@@ -46,9 +47,9 @@ services:
     volumes:
       - data:/data
     environment:
-      - ZELLO_USERNAME=${ZELLO_USERNAME_1}
-      - ZELLO_PASSWORD=${ZELLO_PASSWORD_1}
-      - ZELLO_CHANNEL=${ZELLO_CHANNEL_1}
+      - ZELLO_USERNAME=ZELLO_USERNAME_1
+      - ZELLO_PASSWORD=ZELLO_PASSWORD_1
+      - ZELLO_CHANNEL=ZELLO_CHANNEL_1
       - ZELLO_WORK_ACCOUNT
       - UDP_PORT=9125
       - INPUT_RATE=16000
@@ -56,6 +57,8 @@ services:
       - AUDIO_THRESHOLD
       - SILENCE_SETTING
       - MIN_DURATION_MS
+      - TELEGRAM_TOKEN
+      - TELEGRAM_CHAT_ID
     healthcheck:
       disable: true
 
@@ -70,9 +73,9 @@ services:
     volumes:
       - data:/data
     environment:
-      - ZELLO_USERNAME=${ZELLO_USERNAME_2}
-      - ZELLO_PASSWORD=${ZELLO_PASSWORD_2}
-      - ZELLO_CHANNEL=${ZELLO_CHANNEL_2}
+      - ZELLO_USERNAME=ZELLO_USERNAME_2
+      - ZELLO_PASSWORD=ZELLO_PASSWORD_2
+      - ZELLO_CHANNEL=ZELLO_CHANNEL_2
       - ZELLO_WORK_ACCOUNT
       - UDP_PORT=9126
       - INPUT_RATE=16000
@@ -80,6 +83,8 @@ services:
       - AUDIO_THRESHOLD
       - SILENCE_SETTING
       - MIN_DURATION_MS
+      - TELEGRAM_TOKEN
+      - TELEGRAM_CHAT_ID
     healthcheck:
       disable: true
 
