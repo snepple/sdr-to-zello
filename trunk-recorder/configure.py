@@ -2,6 +2,16 @@ import os
 import json
 import sys
 
+# Helper to safely handle empty or missing environment variables
+def get_int_env(name, default):
+    val = os.getenv(name)
+    if val is not None and val.strip() != "":
+        try:
+            return int(val)
+        except ValueError:
+            print(f"⚠️ Warning: {name} has invalid value '{val}', using default {default}")
+    return int(default)
+
 def update_config():
     template_path = '/app/default-config.json'
     output_path = '/data/config.json'
@@ -13,20 +23,19 @@ def update_config():
         config = {"sources": [], "systems": [], "captureDir": "/data"}
 
     # 1. Fetch Frequencies from Environment
-    # Support both naming conventions from documentation and code
     f1_raw = os.getenv('FREQ_1') or os.getenv('TALKGROUP_FREQ')
     f2_raw = os.getenv('FREQ_2') or os.getenv('TALKGROUP_FREQ_2')
     
     active_freqs = []
-    if f1_raw: active_freqs.append(int(f1_raw))
-    if f2_raw: active_freqs.append(int(f2_raw))
+    if f1_raw and f1_raw.strip(): active_freqs.append(int(f1_raw))
+    if f2_raw and f2_raw.strip(): active_freqs.append(int(f2_raw))
 
     if not active_freqs:
         print("❌ Error: No frequencies configured in FREQ_1/2 or TALKGROUP_FREQ/2.")
         return
 
     # 2. SDR Validation and Center Frequency Calculation
-    sdr_rate = int(os.getenv('SDR_RATE', '2400000'))
+    sdr_rate = get_int_env('SDR_RATE', '2400000')
     usable_bandwidth = sdr_rate * 0.9 
     
     if len(active_freqs) == 2:
@@ -40,36 +49,31 @@ def update_config():
 
     # 3. Define Systems
     systems = []
-    # Simplified system type logic to ensure compatibility with Trunk Recorder
     system_type = os.getenv('SYSTEM_TYPE', 'conventional').lower()
-    if system_type == 'analog':
-        system_type = 'conventional'
+    if system_type == 'analog': system_type = 'conventional'
     
-    # Global fallback squelch
     global_squelch = os.getenv('TR_SQUELCH_DB', '-45')
 
-    if f1_raw:
-        # Use SQUELCH_1 if set, otherwise use global TR_SQUELCH_DB
-        sq1 = int(os.getenv('SQUELCH_1', global_squelch))
+    if f1_raw and f1_raw.strip():
+        sq1 = get_int_env('SQUELCH_1', global_squelch)
         systems.append({
             "shortName": "sys_1",
             "type": system_type,
             "control_channels": [int(f1_raw)],
-            "modulation": os.getenv('MODULATION', 'nfm'), # Default to Narrowband FM
+            "modulation": os.getenv('MODULATION', 'nfm'),
             "squelch": sq1,
             "audioStreaming": "true",
             "streamAddress": "127.0.0.1",
             "streamPort": 9125
         })
 
-    if f2_raw:
-        # Use SQUELCH_2 if set, otherwise use global TR_SQUELCH_DB
-        sq2 = int(os.getenv('SQUELCH_2', global_squelch))
+    if f2_raw and f2_raw.strip():
+        sq2 = get_int_env('SQUELCH_2', global_squelch)
         systems.append({
             "shortName": "sys_2",
             "type": system_type,
             "control_channels": [int(f2_raw)],
-            "modulation": os.getenv('MODULATION', 'nfm'), # Default to Narrowband FM
+            "modulation": os.getenv('MODULATION', 'nfm'),
             "squelch": sq2,
             "audioStreaming": "true",
             "streamAddress": "127.0.0.1",
@@ -80,9 +84,9 @@ def update_config():
 
     # 4. Update SDR Source Settings
     if "sources" in config and len(config["sources"]) > 0:
-        config["sources"][0]["center"] = int(os.getenv('TR_CENTER_HZ', center_freq))
+        config["sources"][0]["center"] = get_int_env('TR_CENTER_HZ', center_freq)
         config["sources"][0]["rate"] = sdr_rate
-        config["sources"][0]["gain"] = int(os.getenv('TR_GAIN_DB', '45'))
+        config["sources"][0]["gain"] = get_int_env('TR_GAIN_DB', '45')
         config["sources"][0]["serial"] = os.getenv('SDR_SERIAL', '00000001')
 
     # 5. Write Config
