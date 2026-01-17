@@ -1,8 +1,8 @@
 import json, math, os, shutil, subprocess, sys, logging, traceback, requests, time, datetime, fcntl
 from collections import deque
 
-# --- LOGGING REDUCTION ---
-# Initialized at INFO level to reduce bug logging verbosity as requested
+# --- LOGGING ---
+# Set to INFO level to reduce log verbosity
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 cfg_path = "/data/configs/zello.json"
@@ -12,8 +12,9 @@ LAST_429_ALERT_FILE = "/data/last_429_alert.txt"
 ERROR_STATE_FILE = "/data/error_state.json"
 
 # --- TELEGRAM CONFIGURATION ---
-TELEGRAM_TOKEN = "8581390939:AAGwYki7ENlLYNy6BT7DM8rn52XeXOqVvtw"
-CHAT_ID = "8322536156"
+# Now retrieved from environment variables instead of being hard-coded
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 DEVICE_NAME = os.getenv("BALENA_DEVICE_NAME_AT_INIT", "Unknown-Pi")
 
 # --- ERROR STATE TRACKING ---
@@ -40,6 +41,11 @@ def should_send_alert(file_path, interval_seconds):
     return True
 
 def send_telegram(message, silent=False, alert_type=None, is_resolution=False):
+    # Safety check: if variables aren't set, just log the message and skip the API call
+    if not TELEGRAM_TOKEN or not CHAT_ID:
+        logging.info(f"Telegram alert (skipped - config missing): {message}")
+        return
+
     if alert_type == "429" and not should_send_alert(LAST_429_ALERT_FILE, 3600):
         logging.info("Suppressing 429 Telegram alert (rate limit).")
         return
