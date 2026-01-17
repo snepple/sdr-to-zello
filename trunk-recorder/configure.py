@@ -7,8 +7,8 @@ def get_int_env(name, default):
     val = os.getenv(name)
     if val is not None and val.strip() != "":
         try:
-            return int(val)
-        except ValueError:
+            return int(float(val)) # float() handles cases like "2.4e6"
+        except (ValueError, TypeError):
             print(f"⚠️ Warning: {name} has invalid value '{val}', using default {default}")
     return int(default)
 
@@ -22,26 +22,30 @@ def update_config():
     else:
         config = {"sources": [], "systems": [], "captureDir": "/data"}
 
-    # 1. Fetch Frequencies from Environment
+    # 1. Fetch Frequencies safely
     f1_raw = os.getenv('FREQ_1') or os.getenv('TALKGROUP_FREQ')
     f2_raw = os.getenv('FREQ_2') or os.getenv('TALKGROUP_FREQ_2')
     
     active_freqs = []
-    if f1_raw and f1_raw.strip(): active_freqs.append(int(f1_raw))
-    if f2_raw and f2_raw.strip(): active_freqs.append(int(f2_raw))
+    try:
+        if f1_raw and f1_raw.strip(): active_freqs.append(int(f1_raw))
+        if f2_raw and f2_raw.strip(): active_freqs.append(int(f2_raw))
+    except ValueError as e:
+        print(f"❌ Error: Frequency must be a number: {e}")
+        return
 
     if not active_freqs:
         print("❌ Error: No frequencies configured in FREQ_1/2 or TALKGROUP_FREQ/2.")
         return
 
-    # 2. SDR Validation and Center Frequency Calculation
+    # 2. SDR Validation
     sdr_rate = get_int_env('SDR_RATE', '2400000')
     usable_bandwidth = sdr_rate * 0.9 
     
     if len(active_freqs) == 2:
         spread = abs(active_freqs[0] - active_freqs[1])
         if spread > usable_bandwidth:
-            print(f"❌ Error: Frequency spread ({spread/1e6:.2f} MHz) exceeds SDR bandwidth ({usable_bandwidth/1e6:.2f} MHz).")
+            print(f"❌ Error: Spread ({spread/1e6:.2f} MHz) exceeds bandwidth ({usable_bandwidth/1e6:.2f} MHz).")
             return
         center_freq = int(min(active_freqs) + (spread / 2))
     else:
@@ -82,7 +86,7 @@ def update_config():
 
     config["systems"] = systems
 
-    # 4. Update SDR Source Settings
+    # 4. SDR Source Update
     if "sources" in config and len(config["sources"]) > 0:
         config["sources"][0]["center"] = get_int_env('TR_CENTER_HZ', center_freq)
         config["sources"][0]["rate"] = sdr_rate
@@ -94,7 +98,7 @@ def update_config():
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, 'w') as f:
             json.dump(config, f, indent=4)
-        print(f"✅ Config Generated. Center: {center_freq/1e6:.4f} MHz | Systems: {len(systems)}")
+        print(f"✅ Config Generated. Center: {center_freq/1e6:.4f} MHz")
     except Exception as e:
         print(f"❌ Failed to write config: {e}")
 
