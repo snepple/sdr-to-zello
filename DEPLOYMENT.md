@@ -31,22 +31,11 @@ Set these environment variables in the Balena dashboard. The services automatica
 | :--- | :--- | :--- | :--- |
 | `FREQ_1` | **Mandatory** | None | The primary frequency (Hz) to monitor (e.g., `155115000`). |
 | `FREQ_2` | Optional | None | The secondary frequency (Hz) to monitor (e.g., `155225000`). |
+| `SQUELCH_1` | Optional | `TR_SQUELCH_DB` | Specific squelch for FREQ_1. |
+| `SQUELCH_2` | Optional | `TR_SQUELCH_DB` | Specific squelch for FREQ_2. |
+| `TR_SQUELCH_DB` | Optional | `-45` | Global squelch threshold used if specific SQUELCH_X is not set. |
 | `SDR_RATE` | Optional | `2400000` | Sample rate for the SDR hardware. |
 | `TR_GAIN_DB` | Optional | `45` | RF gain for the RTL-SDR dongle. |
-| `TR_SQUELCH_DB` | Optional | `-45` | Squelch threshold for analog audio (Lower = more sensitive). |
 | `SYSTEM_TYPE` | Optional | `conventional` | Radio system type (`analog` translates to `conventional`). |
 | `TR_CENTER_HZ` | Optional | Auto | Manual override for the SDR center frequency. |
 | `SDR_SERIAL` | Optional | `00000001`| Serial number of the specific SDR device to use. |
-
-## Troubleshooting
-
-### VOX Tuning
-- **Constant Transmitting**: Increase `AUDIO_THRESHOLD` (try 1000-1500) or set `MIN_DURATION_MS` to 300 to filter static bursts.
-- **Chopped Audio**: Decrease `AUDIO_THRESHOLD` (try 400-500) so quieter voices trigger the stream.
-
-### Hardware & Logs
-- **Frequency Spread Error**: If `FREQ_1` and `FREQ_2` are more than 2.1 MHz apart (at default 2.4M rate), the SDR cannot monitor both simultaneously.
-- **Center Frequency**: By default, the script sets the center frequency exactly between your two configured frequencies.
-
-## License
-Refer to the respective licenses for [Trunk Recorder](https://github.com/TrunkRecorder/trunk-recorder) and [ZelloStream](https://github.com/aaknitt/zellostream).
