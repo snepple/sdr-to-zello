@@ -14,13 +14,23 @@ services:
       - data:/data
     command: ["python3", "/app/monitor.py"]
     environment:
-      - SILENCE_SETTING
+      # Hardware and Frequency Settings
+      - FREQ_1
+      - FREQ_2
+      - TALKGROUP_FREQ
+      - TALKGROUP_FREQ_2
+      - SDR_SERIAL
+      - SDR_RATE
+      - TR_GAIN_DB
+      - TR_CENTER_HZ
+      - SYSTEM_TYPE
+      - MODULATION
+      # Squelch and Silence Settings
       - TR_SQUELCH_DB
       - SQUELCH_1
       - SQUELCH_2
-      - TR_SIGNAL_THRESHOLD
-      - FREQ_1
-      - FREQ_2
+      - SILENCE_SETTING
+      - VOX_SILENCE_TIME
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f trunk-recorder >/dev/null || exit 1"]
       interval: 45s
@@ -43,9 +53,10 @@ services:
     volumes:
       - data:/data
     environment:
-      - ZELLO_USERNAME=${ZELLO_USERNAME_1}
-      - ZELLO_PASSWORD=${ZELLO_PASSWORD_1}
-      - ZELLO_CHANNEL=${ZELLO_CHANNEL_1}
+      # Mapping Balena variables to internal container variables
+      - ZELLO_USERNAME=ZELLO_USERNAME_1
+      - ZELLO_PASSWORD=ZELLO_PASSWORD_1
+      - ZELLO_CHANNEL=ZELLO_CHANNEL_1
       - ZELLO_WORK_ACCOUNT
       - UDP_PORT=9125
       - INPUT_RATE=16000
@@ -69,9 +80,10 @@ services:
     volumes:
       - data:/data
     environment:
-      - ZELLO_USERNAME=${ZELLO_USERNAME_2}
-      - ZELLO_PASSWORD=${ZELLO_PASSWORD_2}
-      - ZELLO_CHANNEL=${ZELLO_CHANNEL_2}
+      # Mapping Balena variables to internal container variables
+      - ZELLO_USERNAME=ZELLO_USERNAME_2
+      - ZELLO_PASSWORD=ZELLO_PASSWORD_2
+      - ZELLO_CHANNEL=ZELLO_CHANNEL_2
       - ZELLO_WORK_ACCOUNT
       - UDP_PORT=9126
       - INPUT_RATE=16000
