@@ -4,7 +4,11 @@ from collections import deque
 # Initialize logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-cfg_path = "/data/configs/zello.json"
+# --- FIX: Make config path unique per instance to prevent overwrite collisions ---
+udp_port = os.getenv("UDP_PORT", "default")
+cfg_path = f"/data/configs/zello_{udp_port}.json"
+# -------------------------------------------------------------------------------
+
 link_path = "/app/config.json"
 BOOT_FLAG = "/dev/shm/zello_stagger_done" 
 LAST_429_ALERT_FILE = "/data/last_429_alert.txt"
@@ -58,8 +62,10 @@ def send_telegram(message, silent=False, alert_type=None, is_resolution=False):
 
 # --- CONFIGURATION LOGIC ---
 os.makedirs("/data/configs", exist_ok=True)
+
+# Copy default config if the target specific config doesn't exist
 if not os.path.exists(cfg_path):
-    logging.info("Copying default zello config to /data/configs/")
+    logging.info(f"Copying default zello config to {cfg_path}")
     shutil.copy("/app/default-config.json", cfg_path)
 
 with open(cfg_path, "r") as f:
@@ -80,7 +86,7 @@ set_if("ZELLO_USERNAME",     ["username"])
 set_if("ZELLO_PASSWORD",     ["password"])
 set_if("ZELLO_CHANNEL",      ["zello_channel"])
 
-# Secondary Channel Credentials (New for Dual Channel Support)
+# Secondary Channel Credentials
 set_if("ZELLO_USERNAME_2",   ["username_2"])
 set_if("ZELLO_PASSWORD_2",   ["password_2"])
 set_if("ZELLO_CHANNEL_2",    ["zello_channel_2"])
