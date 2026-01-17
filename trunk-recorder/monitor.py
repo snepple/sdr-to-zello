@@ -6,11 +6,12 @@ import time
 import json
 
 # --- CONFIGURATION ---
-TELEGRAM_TOKEN = "8581390939:AAGwYki7ENlLYNy6BT7DM8rn52XeXOqVvtw"
-CHAT_ID = "8322536156"
+# Now retrieved from environment variables for security
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 DEVICE_NAME = os.getenv("BALENA_DEVICE_NAME_AT_INIT", "Unknown-Pi")
 
-# Persistent paths
+# Persistent paths for hardware state tracking
 ATTEMPT_FILE = "/data/sdr_attempt_level"
 FAILURE_COUNT_FILE = "/data/consecutive_failures"
 CONFIG_PATH = "/data/config.json"
@@ -46,10 +47,21 @@ def apply_silence_to_config():
             print(f"⚠️ Could not update configuration: {e}")
 
 def send_telegram(message):
+    """Sends an alert to Telegram if credentials are provided."""
+    if not TELEGRAM_TOKEN or not CHAT_ID:
+        print(f"Telegram alert (skipped - config missing): {message}")
+        return
+        
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": f"🚨 *{DEVICE_NAME}*\n{message}", "parse_mode": "Markdown"}
-    try: requests.post(url, json=payload, timeout=10)
-    except: pass
+    payload = {
+        "chat_id": CHAT_ID, 
+        "text": f"🚨 *{DEVICE_NAME}*\n{message}", 
+        "parse_mode": "Markdown"
+    }
+    try: 
+        requests.post(url, json=payload, timeout=10)
+    except Exception as e: 
+        print(f"⚠️ Failed to send Telegram: {e}")
 
 def check_usb_hardware():
     """Checks if any RTL-SDR is visible to the Linux kernel."""
@@ -62,19 +74,22 @@ def check_usb_hardware():
         return False
 
 def reboot_device():
-    send_telegram("🔄 *Self-Heal: System Rebooting*\nHardware not found. Clearing bus.")
+    """Triggers a system reboot via the Balena Supervisor API."""
+    send_telegram("🔄 *Self-Heal: System Rebooting*\nHardware not found or repeatedly failing.")
     if os.path.exists(ATTEMPT_FILE): os.remove(ATTEMPT_FILE)
     if os.path.exists(FAILURE_COUNT_FILE): os.remove(FAILURE_COUNT_FILE)
     time.sleep(5)
+    # Balena Supervisor Reboot Command
     os.system("curl -X POST --header 'Content-Type:application/json' $BALENA_SUPERVISOR_ADDRESS/v1/reboot?apikey=$BALENA_SUPERVISOR_API_KEY")
 
 # --- INITIAL SETUP ---
+# Ensure local config matches dashboard variables before startup
 apply_silence_to_config()
 
 if not check_usb_hardware():
     send_telegram("⚠️ *CRITICAL*: RTL-SDR hardware is NOT detected!")
 
-# Tracking Setup
+# Tracking Setup for stability monitoring
 start_time = time.time()
 try:
     with open(FAILURE_COUNT_FILE, "r") as f:
@@ -82,7 +97,7 @@ try:
 except:
     consecutive_failures = 0
 
-# Start trunk-recorder
+# Start trunk-recorder process
 process = subprocess.Popen(["trunk-recorder", "-c", CONFIG_PATH],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
@@ -90,7 +105,7 @@ for line in iter(process.stdout.readline, ''):
     line = line.strip()
     print(line)
     
-    # Reset failures if stable for 5 minutes
+    # Reset failures if the system remains stable for 5 minutes
     if (time.time() - start_time) > 300:
         if consecutive_failures > 0:
             print("✨ Hardware stable. Resetting counters.")
@@ -98,6 +113,7 @@ for line in iter(process.stdout.readline, ''):
             if os.path.exists(FAILURE_COUNT_FILE): os.remove(FAILURE_COUNT_FILE)
             consecutive_failures = 0
 
+    # Catch common hardware/initialization errors
     if "Failed parsing Config" in line or "Wrong rtlsdr device index" in line:
         consecutive_failures += 1
         with open(FAILURE_COUNT_FILE, "w") as f:
