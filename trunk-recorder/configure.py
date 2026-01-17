@@ -55,7 +55,7 @@ def update_config():
             "squelch": sq1,
             "audioStreaming": "true",
             "streamAddress": "127.0.0.1",
-            "streamPort": 9123
+            "streamPort": 9125 
         })
 
     if f2_raw:
@@ -69,7 +69,7 @@ def update_config():
             "squelch": sq2,
             "audioStreaming": "true",
             "streamAddress": "127.0.0.1",
-            "streamPort": 9124
+            "streamPort": 9126
         })
 
     config["systems"] = systems
