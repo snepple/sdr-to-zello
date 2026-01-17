@@ -6,29 +6,35 @@ import time
 import json
 
 # --- CONFIGURATION ---
-# Now retrieved from environment variables for security
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 DEVICE_NAME = os.getenv("BALENA_DEVICE_NAME_AT_INIT", "Unknown-Pi")
 
-# Persistent paths for hardware state tracking
+# Persistent paths
 ATTEMPT_FILE = "/data/sdr_attempt_level"
 FAILURE_COUNT_FILE = "/data/consecutive_failures"
 CONFIG_PATH = "/data/config.json"
 
 # --- SYNC LOGIC ---
-# Get silence setting from Balena (default to 5 seconds if not found)
-SILENCE_VAL = os.getenv("SILENCE_SETTING", os.getenv("VOX_SILENCE_TIME", "5"))
+def get_silence_val():
+    """Safely retrieves the silence duration, defaulting to 5s if empty."""
+    val = os.getenv("SILENCE_SETTING") or os.getenv("VOX_SILENCE_TIME")
+    if val and val.strip():
+        try:
+            return str(float(val))
+        except ValueError:
+            pass
+    return "5"
+
+SILENCE_VAL = get_silence_val()
 
 def apply_silence_to_config():
-    """Updates config.json and syncs zellostream via millisecond conversion."""
+    """Updates config.json and prepares sync for zellostream."""
     if os.path.exists(CONFIG_PATH):
         try:
-            # 1. Update trunk-recorder config.json (Seconds)
             with open(CONFIG_PATH, 'r') as f:
                 config = json.load(f)
             
-            # Update voxSilenceTime in the systems section for both frequencies
             if "systems" in config:
                 for system in config["systems"]:
                     system["voxSilenceTime"] = float(SILENCE_VAL)
@@ -37,8 +43,7 @@ def apply_silence_to_config():
                 json.dump(config, f, indent=4)
             print(f"✅ trunk-recorder updated: voxSilenceTime set to {SILENCE_VAL}s")
 
-            # 2. Sync zellostream (Milliseconds)
-            # We calculate the MS value here for the streaming services to inherit
+            # Prepare for zellostream (Milliseconds)
             vox_ms = int(float(SILENCE_VAL) * 1000)
             os.environ["VOX_SILENCE_MS"] = str(vox_ms)
             print(f"✅ zellostream sync prepared: VOX_SILENCE_MS set to {vox_ms}ms")
@@ -47,24 +52,15 @@ def apply_silence_to_config():
             print(f"⚠️ Could not update configuration: {e}")
 
 def send_telegram(message):
-    """Sends an alert to Telegram if credentials are provided."""
     if not TELEGRAM_TOKEN or not CHAT_ID:
         print(f"Telegram alert (skipped - config missing): {message}")
         return
-        
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID, 
-        "text": f"🚨 *{DEVICE_NAME}*\n{message}", 
-        "parse_mode": "Markdown"
-    }
-    try: 
-        requests.post(url, json=payload, timeout=10)
-    except Exception as e: 
-        print(f"⚠️ Failed to send Telegram: {e}")
+    payload = {"chat_id": CHAT_ID, "text": f"🚨 *{DEVICE_NAME}*\n{message}", "parse_mode": "Markdown"}
+    try: requests.post(url, json=payload, timeout=10)
+    except: pass
 
 def check_usb_hardware():
-    """Checks if any RTL-SDR is visible to the Linux kernel."""
     try:
         result = subprocess.run(['lsusb'], capture_output=True, text=True)
         if "0bda:2838" not in result.stdout:
@@ -74,22 +70,18 @@ def check_usb_hardware():
         return False
 
 def reboot_device():
-    """Triggers a system reboot via the Balena Supervisor API."""
-    send_telegram("🔄 *Self-Heal: System Rebooting*\nHardware not found or repeatedly failing.")
+    send_telegram("🔄 *Self-Heal: System Rebooting*\nHardware failure loop detected.")
     if os.path.exists(ATTEMPT_FILE): os.remove(ATTEMPT_FILE)
     if os.path.exists(FAILURE_COUNT_FILE): os.remove(FAILURE_COUNT_FILE)
     time.sleep(5)
-    # Balena Supervisor Reboot Command
     os.system("curl -X POST --header 'Content-Type:application/json' $BALENA_SUPERVISOR_ADDRESS/v1/reboot?apikey=$BALENA_SUPERVISOR_API_KEY")
 
 # --- INITIAL SETUP ---
-# Ensure local config matches dashboard variables before startup
 apply_silence_to_config()
 
 if not check_usb_hardware():
     send_telegram("⚠️ *CRITICAL*: RTL-SDR hardware is NOT detected!")
 
-# Tracking Setup for stability monitoring
 start_time = time.time()
 try:
     with open(FAILURE_COUNT_FILE, "r") as f:
@@ -97,7 +89,7 @@ try:
 except:
     consecutive_failures = 0
 
-# Start trunk-recorder process
+# Start trunk-recorder
 process = subprocess.Popen(["trunk-recorder", "-c", CONFIG_PATH],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
@@ -105,15 +97,12 @@ for line in iter(process.stdout.readline, ''):
     line = line.strip()
     print(line)
     
-    # Reset failures if the system remains stable for 5 minutes
-    if (time.time() - start_time) > 300:
-        if consecutive_failures > 0:
-            print("✨ Hardware stable. Resetting counters.")
-            if os.path.exists(ATTEMPT_FILE): os.remove(ATTEMPT_FILE)
-            if os.path.exists(FAILURE_COUNT_FILE): os.remove(FAILURE_COUNT_FILE)
-            consecutive_failures = 0
+    if (time.time() - start_time) > 300 and consecutive_failures > 0:
+        print("✨ Hardware stable. Resetting counters.")
+        if os.path.exists(ATTEMPT_FILE): os.remove(ATTEMPT_FILE)
+        if os.path.exists(FAILURE_COUNT_FILE): os.remove(FAILURE_COUNT_FILE)
+        consecutive_failures = 0
 
-    # Catch common hardware/initialization errors
     if "Failed parsing Config" in line or "Wrong rtlsdr device index" in line:
         consecutive_failures += 1
         with open(FAILURE_COUNT_FILE, "w") as f:
