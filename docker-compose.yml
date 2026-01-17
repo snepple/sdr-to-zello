@@ -15,9 +15,9 @@ services:
     command: ["python3", "/app/monitor.py"]
     environment:
       - SILENCE_SETTING
-      - TR_SQUELCH_DB      # Global fallback
-      - SQUELCH_1          # New specific var
-      - SQUELCH_2          # New specific var
+      - TR_SQUELCH_DB
+      - SQUELCH_1
+      - SQUELCH_2
       - TR_SIGNAL_THRESHOLD
       - FREQ_1
       - FREQ_2
@@ -47,7 +47,7 @@ services:
       - ZELLO_PASSWORD=${ZELLO_PASSWORD_1}
       - ZELLO_CHANNEL=${ZELLO_CHANNEL_1}
       - ZELLO_WORK_ACCOUNT
-      - UDP_PORT=9123
+      - UDP_PORT=9125
       - INPUT_RATE=16000
       - ZELLO_RATE=16000
       - AUDIO_THRESHOLD
@@ -73,7 +73,7 @@ services:
       - ZELLO_PASSWORD=${ZELLO_PASSWORD_2}
       - ZELLO_CHANNEL=${ZELLO_CHANNEL_2}
       - ZELLO_WORK_ACCOUNT
-      - UDP_PORT=9124
+      - UDP_PORT=9126
       - INPUT_RATE=16000
       - ZELLO_RATE=16000
       - AUDIO_THRESHOLD
