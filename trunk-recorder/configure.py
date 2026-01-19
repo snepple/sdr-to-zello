@@ -16,16 +16,18 @@ def update_config():
         print(f"❌ Failed to parse template: {e}")
         return
 
-    # 1. Audio/Filtering Settings from Balena
-    call_timeout = int(os.getenv('TR_CALL_TIMEOUT', '1')) # Set to 1 to prevent "run-on"
+    # --- FIX: Synchronize Call Timeout with Silence Setting ---
+    # This ensures the radio stays open as long as the Zello hangtime
+    call_timeout = int(os.getenv('TR_CALL_TIMEOUT', os.getenv('SILENCE_SETTING', '5')))
+    
     deemphasis = os.getenv('TR_DEEMPHASIS', 'true').lower() == 'true'
     min_duration = float(os.getenv('TR_MIN_DURATION', '0.5'))
-    squelch = int(os.getenv('TR_SQUELCH_DB', '-55')) # Tighter squelch
+    squelch = int(os.getenv('TR_SQUELCH_DB', '-45')) 
     analog_levels = float(os.getenv('TR_ANALOG_LEVELS', '1.0'))
     
-    # 2. SDR Settings (Lower rate = Lower CPU usage)
+    # 2. SDR Settings
     gain = int(os.getenv('TR_GAIN_DB', '32'))
-    rate = int(os.getenv('SDR_RATE', '1024000')) # Recommended lower rate
+    rate = int(os.getenv('SDR_RATE', '1024000')) 
     center = int(os.getenv('TR_CENTER_HZ', '155115000'))
 
     # 3. Apply Settings to Config
