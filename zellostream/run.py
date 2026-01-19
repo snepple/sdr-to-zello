@@ -2,7 +2,6 @@ import json, math, os, shutil, subprocess, sys, logging, traceback, requests, ti
 from collections import deque
 
 # --- LOGGING ---
-# Set to INFO level to reduce log verbosity
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 cfg_path = "/data/configs/zello.json"
@@ -11,13 +10,10 @@ BOOT_FLAG = "/dev/shm/zello_stagger_done"
 LAST_429_ALERT_FILE = "/data/last_429_alert.txt"
 ERROR_STATE_FILE = "/data/error_state.json"
 
-# --- TELEGRAM CONFIGURATION ---
-# Now retrieved from environment variables instead of being hard-coded
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 DEVICE_NAME = os.getenv("BALENA_DEVICE_NAME_AT_INIT", "Unknown-Pi")
 
-# --- ERROR STATE TRACKING ---
 def get_error_state():
     if os.path.exists(ERROR_STATE_FILE):
         try:
@@ -41,15 +37,12 @@ def should_send_alert(file_path, interval_seconds):
     return True
 
 def send_telegram(message, silent=False, alert_type=None, is_resolution=False):
-    # Safety check: if variables aren't set, just log the message and skip the API call
     if not TELEGRAM_TOKEN or not CHAT_ID:
         logging.info(f"Telegram alert (skipped - config missing): {message}")
         return
-
     if alert_type == "429" and not should_send_alert(LAST_429_ALERT_FILE, 3600):
         logging.info("Suppressing 429 Telegram alert (rate limit).")
         return
-
     prefix = "✅ *RESOLUTION*" if is_resolution else "🚨 *ALERT*"
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
@@ -58,10 +51,8 @@ def send_telegram(message, silent=False, alert_type=None, is_resolution=False):
         "parse_mode": "Markdown",
         "disable_notification": silent
     }
-    try:
-        requests.post(url, json=payload, timeout=10)
-    except Exception as e:
-        logging.error(f"Failed to send Telegram alert: {e}")
+    try: requests.post(url, json=payload, timeout=10)
+    except Exception as e: logging.error(f"Failed to send Telegram alert: {e}")
 
 # --- CONFIGURATION LOGIC ---
 os.makedirs("/data/configs", exist_ok=True)
@@ -91,6 +82,9 @@ set_if("INPUT_RATE",         ["audio_input_sample_rate"], int)
 set_if("ZELLO_RATE",         ["zello_sample_rate"], int)
 set_if("AUDIO_THRESHOLD",    ["audio_threshold"], int)
 
+# --- FIX: Apply SILENCE_SETTING to vox_silence_time ---
+set_if("SILENCE_SETTING",    ["vox_silence_time"], int)
+
 with open(cfg_path, "w") as f:
     json.dump(cfg, f, indent=2)
 
@@ -110,18 +104,13 @@ try:
         ["python3", "-u", "/app/zellostream.py", "--config", cfg_path],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
     )
-
-    # Set pipe to non-blocking to prevent handshake timeouts
     fd = process.stdout.fileno()
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-
-    # Resolution notification
     if state["in_error"]:
         res_msg = f"The radio gateway has successfully recovered after the previous error ({state['last_error']}). Audio streaming is active."
         send_telegram(res_msg, is_resolution=True)
         set_error_state(False)
-
     while True:
         try:
             line = process.stdout.readline()
@@ -129,30 +118,21 @@ try:
                 clean_line = line.strip()
                 print(clean_line)
                 log_buffer.append(clean_line)
-            elif process.poll() is not None:
-                break
-        except (IOError, TypeError):
-            pass
+            elif process.poll() is not None: break
+        except (IOError, TypeError): pass
         time.sleep(0.1)
-
     exit_code = process.wait()
-
     if exit_code != 0:
         recent_logs = "\n".join(log_buffer)
         is_429 = "429" in recent_logs
         error_name = "Zello Rate Limit (429)" if is_429 else f"Process Crash (Exit {exit_code})"
         set_error_state(True, error_name)
-
         if is_429:
-            err_msg = f"🚫 *Zello Rate Limit (429)*\nYour IP is temporarily blocked. Waiting 60s cooldown."
-            send_telegram(err_msg, alert_type="429")
             time.sleep(60)
         else:
             err_msg = f"❌ *Process Crashed (Exit {exit_code})*\n\n*Logs:*\n```{recent_logs}```"
             send_telegram(err_msg)
-    
     sys.exit(exit_code)
-
 except Exception as e:
     set_error_state(True, "Launcher Error")
     send_telegram(f"🔥 *Launcher Error*\n```{str(e)}```")
